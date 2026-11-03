@@ -1,5 +1,7 @@
 import json
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -39,7 +41,18 @@ class KnowledgeImportTests(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0], 1)
             connection.close()
 
-    def test_invalid_record_rejected(self):
+    def test_direct_manage_script_and_rebuild_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / "docs.json"; db = root / "knowledge.db"
+            source.write_text(json.dumps({"documents": [self.record()]}, ensure_ascii=False), encoding="utf-8")
+            completed = subprocess.run([sys.executable, str(Path(__file__).parents[1] / "src/q3/manage.py"),
+                                        "--input", str(source), "--db", str(db), "--rebuild-index"],
+                                       capture_output=True, text=True, check=True)
+            output = json.loads(completed.stdout)
+            self.assertTrue(output["index_rebuilt"])
+            self.assertEqual(output["index_type"], "sqlite_text")
+            self.assertTrue(EnterpriseQA(load_chunks(db)).answer("报销期限").citations)
+
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); source = root / "docs.json"; db = root / "knowledge.db"
             source.write_text(json.dumps({"documents": [{"document_id": "bad"}]}), encoding="utf-8")
