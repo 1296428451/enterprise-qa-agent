@@ -7,7 +7,7 @@ from collections import Counter
 from .models import Chunk, ScoredChunk
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+|[\u4e00-\u9fff]")
-_STOPWORDS = set("的了和是我你他她它在有无要什么是否公司提供可以普通需要应该最晚吗？" )
+_STOPWORDS = set("的了和是我你他她它在有无要什么是否公司提供可以普通需要应该最晚吗？员工" )
 
 
 def tokenize(text: str) -> list[str]:
@@ -32,15 +32,17 @@ class BM25:
         scored: list[ScoredChunk] = []
         for index, chunk in enumerate(self.chunks):
             score = 0.0
+            matched_terms = 0
             for term in query_terms:
                 tf = self.term_frequency[index].get(term, 0)
                 if not tf:
                     continue
+                matched_terms += 1
                 df = self.document_frequency[term]
                 idf = math.log(1 + (total - df + 0.5) / (df + 0.5))
                 denominator = tf + self.k1 * (1 - self.b + self.b * self.lengths[index] / max(self.avg_length, 1))
                 score += idf * tf * (self.k1 + 1) / denominator
-            if score > 0:
+            if score > 0 and (matched_terms >= 2 or len(query_terms) <= 1):
                 scored.append(ScoredChunk(chunk=chunk, bm25_score=score))
         return sorted(scored, key=lambda item: item.bm25_score, reverse=True)[:limit]
 
@@ -72,7 +74,9 @@ class MockSemanticRetriever:
         for chunk in self.chunks:
             terms = set(tokenize(chunk.text))
             overlap = len(query_terms & terms) / max(len(query_terms), 1)
-            if overlap >= 0.25:
+            matched_terms = len(query_terms & terms)
+            minimum_overlap = 0.5 if len(query_terms) > 1 else 0.25
+            if matched_terms >= 2 and overlap >= minimum_overlap:
                 results.append(ScoredChunk(chunk=chunk, vector_score=overlap))
         return sorted(results, key=lambda item: item.vector_score, reverse=True)[:limit]
 

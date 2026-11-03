@@ -50,7 +50,11 @@ class EnterpriseQATests(unittest.TestCase):
         self.assertEqual(result.status, "insufficient_evidence")
         self.assertFalse(result.verification["verified"])
 
-    def test_evidence_limit_is_configurable(self):
+    def test_unrelated_employee_benefits_query_has_insufficient_evidence(self):
+        result = EnterpriseQA(self.chunks).answer("员工福利积分如何兑换？")
+        self.assertEqual(result.status, "insufficient_evidence")
+        self.assertEqual(result.citations, [])
+
         result = EnterpriseQA(self.chunks, max_evidence=1).answer("审批进度在哪里查看？")
         self.assertLessEqual(len(result.citations), 1)
 

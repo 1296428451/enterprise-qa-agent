@@ -1,0 +1,368 @@
+{
+  "total": 10,
+  "status_accuracy": 1.0,
+  "document_recall_rate": 1.0,
+  "cases": [
+    {
+      "case_id": "q3-01",
+      "question": "普通费用报销期限多久？",
+      "expected_status": "conflict_detected",
+      "actual_status": "conflict_detected",
+      "status_match": true,
+      "expected_documents": [
+        "D01",
+        "D02"
+      ],
+      "actual_documents": [
+        "D01",
+        "D02"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "普通费用报销期限多久？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "2 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "2 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "2 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "conflict detected; ask user"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-02",
+      "question": "差旅报销需要什么材料？",
+      "expected_status": "completed",
+      "actual_status": "completed",
+      "status_match": true,
+      "expected_documents": [
+        "D03"
+      ],
+      "actual_documents": [
+        "D03"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "差旅报销需要什么材料？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "1 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "1 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "1 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "passed"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-03",
+      "question": "审批进度在哪里查看？",
+      "expected_status": "completed",
+      "actual_status": "completed",
+      "status_match": true,
+      "expected_documents": [
+        "D04"
+      ],
+      "actual_documents": [
+        "D04"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "审批进度在哪里查看？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "1 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "1 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "1 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "passed"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-04",
+      "question": "公司是否提供住房补贴？",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "status_match": true,
+      "expected_documents": [],
+      "actual_documents": [],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "公司是否提供住房补贴？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "0 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "0 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "0 evidence chunks"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-05",
+      "question": "报销最晚什么时候提交？",
+      "expected_status": "conflict_detected",
+      "actual_status": "conflict_detected",
+      "status_match": true,
+      "expected_documents": [
+        "D01",
+        "D02"
+      ],
+      "actual_documents": [
+        "D01",
+        "D02",
+        "D03"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "报销最晚什么时候提交？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "3 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "3 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "3 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "conflict detected; ask user"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-06",
+      "question": "出差报销要准备哪些材料？",
+      "expected_status": "completed",
+      "actual_status": "completed",
+      "status_match": true,
+      "expected_documents": [
+        "D03"
+      ],
+      "actual_documents": [
+        "D03"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "出差报销要准备哪些材料？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "1 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "1 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "1 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "passed"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-07",
+      "question": "我想查看自己的审批流程进度",
+      "expected_status": "completed",
+      "actual_status": "completed",
+      "status_match": true,
+      "expected_documents": [
+        "D04"
+      ],
+      "actual_documents": [
+        "D04"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "我想查看自己的审批流程进度"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "1 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "1 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "1 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "passed"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-08",
+      "question": "普通费用报销是否有提交时限？",
+      "expected_status": "conflict_detected",
+      "actual_status": "conflict_detected",
+      "status_match": true,
+      "expected_documents": [
+        "D01",
+        "D02"
+      ],
+      "actual_documents": [
+        "D01",
+        "D02"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "普通费用报销是否有提交时限？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "3 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "3 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "2 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "conflict detected; ask user"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-09",
+      "question": "员工福利积分如何兑换？",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "status_match": true,
+      "expected_documents": [],
+      "actual_documents": [],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "员工福利积分如何兑换？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "0 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "0 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "0 evidence chunks"
+        }
+      ]
+    },
+    {
+      "case_id": "q3-10",
+      "question": "发票和行程单是否是差旅报销材料？",
+      "expected_status": "completed",
+      "actual_status": "completed",
+      "status_match": true,
+      "expected_documents": [
+        "D03"
+      ],
+      "actual_documents": [
+        "D03"
+      ],
+      "document_recall": true,
+      "trace": [
+        {
+          "action": "plan_queries",
+          "result": "deterministic query plan",
+          "query": "发票和行程单是否是差旅报销材料？"
+        },
+        {
+          "action": "hybrid_retrieve",
+          "result": "1 candidates"
+        },
+        {
+          "action": "jev_rerank",
+          "result": "1 ranked candidates"
+        },
+        {
+          "action": "select_evidence",
+          "result": "1 evidence chunks"
+        },
+        {
+          "action": "verify_answer",
+          "result": "passed"
+        }
+      ]
+    }
+  ]
+}
