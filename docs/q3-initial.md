@@ -15,7 +15,9 @@ python src/q3/cli.py --input examples/requests/q3_conflict.json
 
 本地已发现 `bge-m3` 和 `all-MiniLM-L6-v2` 文件，但当前环境尚未完成真实 embedding 适配；Jev 权重也未在给定模型目录中发现。因此当前结果不声称使用真实向量模型或真实 Jev。下一步先在 tests 通过后接入真实模型，并以同一套指标比较 Mock 与真实实现。
 
-## Local semantic index
+## Reranker model status
+
+The preferred open reranker is `Qwen/Qwen3-Reranker-0.6B`; alternatives are `mixedbread-ai/mxbai-rerank-base-v2` and `BAAI/bge-reranker-v2-m3`. All are below 1B parameters and suitable for local pairwise relevance scoring. The current Hugging Face mirror/proxy attempt returned HTTP 502 and left only incomplete download files, so none is enabled yet. The project keeps the tested Jev-compatible adapter and Mock fallback rather than claiming a partial model is usable.
 
 The local `all-MiniLM-L6-v2` model was loaded successfully in the `py312` environment and produced normalized 384-dimensional vectors. Build the persisted FAISS index from the repository root after the test gate:
 
