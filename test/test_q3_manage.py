@@ -26,8 +26,8 @@ class KnowledgeImportTests(unittest.TestCase):
             self.assertEqual(import_documents(source, db)["inserted"], 1)
             self.assertEqual(len(list_versions(db, "DNEW")), 2)
             result = EnterpriseQA(load_chunks(db)).answer("报销期限")
+            self.assertEqual(result.status, "version_conflict")
             self.assertTrue(result.citations)
-            self.assertIn(result.citations[0]["version"], {"1", "2"})
 
     def test_conflicting_hash_and_mixed_batch_roll_back(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -58,6 +58,17 @@ class KnowledgeImportTests(unittest.TestCase):
             source.write_text(json.dumps({"documents": [{"document_id": "bad"}]}), encoding="utf-8")
             with self.assertRaises(ValueError):
                 import_documents(source, db)
+
+    def test_content_chunks_mismatch_rolls_back(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / "docs.json"; db = root / "knowledge.db"
+            invalid = self.record(); invalid["content"] = "正文"; invalid["chunks"] = [{"text": "不一致"}]
+            source.write_text(json.dumps({"documents": [invalid]}, ensure_ascii=False), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                import_documents(source, db)
+            connection = sqlite3.connect(db)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0], 0)
+            connection.close()
 
 
 if __name__ == "__main__":

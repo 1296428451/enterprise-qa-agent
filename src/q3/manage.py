@@ -40,7 +40,9 @@ def _validate(record: Any) -> dict[str, Any]:
     missing = [field for field in REQUIRED if not isinstance(record.get(field), str) or not record[field].strip()]
     if missing:
         raise ValueError("missing or empty fields: " + ", ".join(missing))
-    _chunks(record)
+    chunks = _chunks(record)
+    if "chunks" in record and "".join(chunks) != record["content"]:
+        raise ValueError("content does not match concatenated chunks")
     return record
 
 

@@ -29,6 +29,15 @@ class EnterpriseQA:
             return Answer("insufficient_evidence", None, [], ["没有检索到相关资料"], trace,
                           {"candidate_count": 0, "selected_count": 0}, {"verified": False})
         conflict = detect_conflict(evidence)
+        versions_by_document = {}
+        for item in evidence:
+            versions_by_document.setdefault(item.chunk.document_id, set()).add(item.chunk.version)
+        version_conflict = any(len(versions) > 1 for versions in versions_by_document.values())
+        if version_conflict:
+            trace.append({"action": "verify_answer", "result": "multiple document versions; ask user"})
+            return Answer("version_conflict", None, citations, ["同一文档检索到多个版本，无法自动选择"], trace,
+                          {"candidate_count": len(candidates), "selected_count": len(evidence)},
+                          {"verified": False, "conflict_detected": True, "version_conflict": True, "action": "ask_user"})
         if conflict:
             trace.append({"action": "verify_answer", "result": "conflict detected; ask user"})
             return Answer("conflict_detected", None, citations, ["检索到的制度内容存在冲突"], trace,
