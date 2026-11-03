@@ -7,9 +7,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-try:
+if __package__:
     from .database import create_database
-except ImportError:  # direct: python src/q3/manage.py
+else:  # direct: python src/q3/manage.py
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from src.q3.database import create_database
