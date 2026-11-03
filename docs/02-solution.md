@@ -14,3 +14,8 @@ The current offline planner uses explicit deterministic decisions so the busines
 
 ## Trade-offs and limitations
 No external LLM or framework is required, so the project runs offline and tests reliably. This is a workflow/mock demonstration, not evidence of model-driven action selection. Data persistence is a JSON file and is not safe for concurrent writers or production. Policy data is illustrative and needs owner review.
+
+## Repository constraints
+- `.agent/` is a local-only development specification and is intentionally ignored by Git.
+- `data/drafts.json` is runtime state and is intentionally ignored; the service creates it when a draft is first persisted.
+- `test/` is tracked and is the acceptance gate for changes.

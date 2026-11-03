@@ -34,7 +34,7 @@ API 默认监听 `127.0.0.1:18080`。健康检查 `GET /api/health`；提交排�
 - 验证与限制：[docs/03-evaluation.md](docs/03-evaluation.md)
 - AI 使用：[docs/04-ai-usage.md](docs/04-ai-usage.md)
 - 复盘：[docs/05-retrospective.md](docs/05-retrospective.md)
-- 规范：[.agent/SPEC.md](.agent/SPEC.md)（按仓库策略忽略，不会随 Git 提交）
+- 开发规范：`.agent/SPEC.md` 是本地工作规范，按用户要求被 Git 忽略；仓库可交付的设计与约束见 [docs/02-solution.md](docs/02-solution.md)。
 
 ## 重要限制
 
