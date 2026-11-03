@@ -1,4 +1,6 @@
 numpy>=2.0,<3
 faiss-cpu>=1.8
 transformers>=4.45
+sentencepiece>=0.2
+safetensors>=0.4
 openai>=1.0

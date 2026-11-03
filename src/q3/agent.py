@@ -8,15 +8,16 @@ from .retrieval import EvidenceSelector, MockJevReranker, detect_conflict, hybri
 
 
 class EnterpriseQA:
-    def __init__(self, chunks: list[Chunk], candidate_limit: int = 50, max_evidence: int = 8):
+    def __init__(self, chunks: list[Chunk], candidate_limit: int = 50, max_evidence: int = 8, semantic_retriever=None):
         self.chunks = chunks
         self.candidate_limit = candidate_limit
+        self.semantic_retriever = semantic_retriever
         self.selector = EvidenceSelector(maximum=max_evidence)
         self.reranker = MockJevReranker()
 
     def answer(self, question: str, history: list[dict] | None = None) -> Answer:
         trace = [{"action": "plan_queries", "result": "deterministic query plan", "query": question}]
-        candidates = hybrid_candidates(question, self.chunks, self.candidate_limit)
+        candidates = hybrid_candidates(question, self.chunks, self.candidate_limit, self.semantic_retriever)
         trace.append({"action": "hybrid_retrieve", "result": f"{len(candidates)} candidates"})
         ranked = self.reranker.score(question, candidates)
         trace.append({"action": "jev_rerank", "result": f"{len(ranked)} ranked candidates"})

@@ -114,9 +114,9 @@ def detect_conflict(items: list[ScoredChunk]) -> bool:
     return any(len(values) > 1 for values in by_key.values())
 
 
-def hybrid_candidates(query: str, chunks: list[Chunk], limit: int = 50) -> list[ScoredChunk]:
+def hybrid_candidates(query: str, chunks: list[Chunk], limit: int = 50, semantic_retriever=None) -> list[ScoredChunk]:
     bm25 = normalize_scores(BM25(chunks).search(query, limit))
-    semantic = MockSemanticRetriever(chunks).search(query, limit)
+    semantic = (semantic_retriever or MockSemanticRetriever(chunks)).search(query, limit)
     by_id: dict[str, ScoredChunk] = {}
     for item in bm25 + semantic:
         current = by_id.get(item.chunk.chunk_id)
