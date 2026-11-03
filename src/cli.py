@@ -12,11 +12,15 @@ from src.agent import SchedulingAgent, load_tools, persist_drafts
 def main():
     parser = argparse.ArgumentParser(description="Run the offline scheduling agent")
     parser.add_argument("request", help="Path to request JSON")
+    parser.add_argument("--fresh-run", action="store_true",
+                        help="Ignore stored drafts and do not persist this demonstration run")
     args = parser.parse_args()
     request = json.loads(Path(args.request).read_text(encoding="utf-8"))
     tools = load_tools(ROOT / "data")
+    if args.fresh_run:
+        tools.drafts = {}
     result = SchedulingAgent(tools).run(request)
-    if result.get("draft_saved") and not result.get("duplicate"):
+    if result.get("draft_saved") and not result.get("duplicate") and not args.fresh_run:
         try:
             persist_drafts(tools, ROOT / "data")
         except OSError as exc:

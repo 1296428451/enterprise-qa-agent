@@ -9,7 +9,7 @@ Run `python -m unittest discover -s test -v` from the repository root. The tests
 - `examples/traces/risk.json`: risk scenario and expected block result.
 - `examples/traces/missing.json`: missing metadata scenario and expected block result.
 
-Inputs are under `examples/requests/`. Run an example with `python "C:/Users/ASUS/Desktop/小影笔试/agent-code/src/cli.py" "C:/Users/ASUS/Desktop/小影笔试/agent-code/examples/requests/conflict.json"`. The CLI prints the actual result and tool trace. HTTP health check: `GET /api/health`; planning: `POST /api/plan`.
+Inputs are under `examples/requests/`. From the repository root, run `python -m src.cli examples/requests/conflict.json --fresh-run` to print a repeatable first-run result and tool trace without modifying the persisted draft store. HTTP health check: `GET /api/health`; planning: `POST /api/plan`.
 
 ## Interpretation
 The deterministic offline mock verifies workflow and safety boundaries only. It does not demonstrate real LLM planning quality. Save-failure injection is covered at the tool boundary by unit test.
