@@ -33,6 +33,19 @@ python src/q3/build_database.py
 
 The SQLite database contains four synthetic documents and four chunks. Runtime state remains ignored.
 
-## 评测边界
+## 评测结果（10 cases）
+
+从仓库根目录运行：
+
+```bash
+python src/q3/evaluate.py --cases data/q3_eval_cases.json --db data/knowledge.db --output data/q3_eval_report.json
+```
+
+当前检索门槛要求多词查询至少命中两个不同非停用词，并对语义 Mock 结果设置最低重叠度，以避免“员工福利积分如何兑换？”因共享“员工”单字误召回。最新结果：
+
+- `status_accuracy`: **1.00**
+- `document_recall_rate`: **1.00**
+- 全量 unittest：21 passed、1 skipped（本地 embedding 依赖未启用）
+
 
 外部 RAG 数据集只用于检索评测，不混入企业知识库。第三题最终验收仍以题目规定的合成 FAQ/制度场景为准，重点检查引用支持、冲突保留、资料外拒答、上下文追问和工具失败。当前 Hugging Face FRAMES 下载受本机 TLS/代理连接失败阻塞，未伪造外部数据集指标。
