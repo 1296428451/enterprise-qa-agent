@@ -1,0 +1,15 @@
+{
+  "scenario": "asset carries review risk",
+  "request": {
+    "request_id": "risk-trace-001",
+    "asset_ids": ["M02"],
+    "constraints": {"publish_at": "2026-11-06T18:00:00+08:00"},
+    "alternative_slots": []
+  },
+  "expected_from_current_tool_data": {
+    "review_status": "risk",
+    "risk_reasons": ["授权证明缺失"],
+    "draft_saved": false
+  },
+  "note": "Scenario definition; run the CLI to produce fresh actual output and trace."
+}

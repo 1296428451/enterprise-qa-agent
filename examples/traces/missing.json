@@ -1,0 +1,15 @@
+{
+  "scenario": "asset title missing",
+  "request": {
+    "request_id": "missing-trace-001",
+    "asset_ids": ["M03"],
+    "constraints": {"publish_at": "2026-11-06T18:00:00+08:00"},
+    "alternative_slots": []
+  },
+  "expected_from_current_tool_data": {
+    "review_status": "risk",
+    "risk_reasons": ["缺少素材标题"],
+    "draft_saved": false
+  },
+  "note": "Scenario definition; run the CLI to produce fresh actual output and trace."
+}

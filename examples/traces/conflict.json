@@ -1,0 +1,23 @@
+{
+  "scenario": "occupied requested slot, alternative available",
+  "request": {
+    "request_id": "demo-conflict-001",
+    "asset_ids": ["M01"],
+    "constraints": {"publish_at": "2026-11-05T18:00:00+08:00"},
+    "alternative_slots": ["2026-11-05T19:00:00+08:00"]
+  },
+  "actual_result": {
+    "status": "completed",
+    "draft_saved": true,
+    "published": false,
+    "suggested_slot": "2026-11-05T19:00:00+08:00",
+    "pending_confirmation": true,
+    "draft_save_status": "saved"
+  },
+  "trace_summary": [
+    {"step": 1, "tool": "read_asset", "result": "found", "next_action": "check_rules", "reason": "先确认素材信息完整可读取"},
+    {"step": 2, "tool": "check_rules", "result": "no risk", "next_action": "check_slot", "reason": "根据审核规则及素材信息判断风险"},
+    {"step": 3, "tool": "find_slot", "result": "2026-11-05T19:00:00+08:00", "next_action": "request_confirmation", "reason": "硬性时段被占用时仅建议替代时段，等待用户确认"},
+    {"step": 4, "tool": "save_draft", "result": "saved", "next_action": "finish", "reason": "只保存排期草稿，不触发发布"}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "scenario": "requested slot available",
+  "request": {
+    "request_id": "normal-trace-001",
+    "asset_ids": ["M01"],
+    "constraints": {"publish_at": "2026-11-06T18:00:00+08:00"},
+    "alternative_slots": []
+  },
+  "expected_from_current_tool_data": {
+    "review_status": "approved",
+    "suggested_slot": "2026-11-06T18:00:00+08:00",
+    "pending_confirmation": false,
+    "draft_saved": true,
+    "published": false
+  },
+  "note": "Scenario definition; run the CLI to produce fresh actual output and trace."
+}

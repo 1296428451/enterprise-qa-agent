@@ -1,0 +1,6 @@
+{
+  "M01": {"title": "春季新品预热视频", "status": "ready", "risks": []},
+  "M02": {"title": "待补充授权的用户案例", "status": "ready", "risks": ["授权证明缺失"]},
+  "M03": {"status": "ready", "risks": []},
+  "M04": {"title": "审核违规素材", "status": "blocked", "risks": []}
+}

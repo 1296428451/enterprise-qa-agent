@@ -1,0 +1,6 @@
+{
+  "request_id": "demo-conflict-001",
+  "asset_ids": ["M01"],
+  "constraints": {"publish_at": "2026-11-05T18:00:00+08:00"},
+  "alternative_slots": ["2026-11-05T19:00:00+08:00"]
+}
