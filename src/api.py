@@ -22,25 +22,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/api/plan":
             self.send_error(404)
             return
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-            request = json.loads(self.rfile.read(length))
-            tools = load_tools(ROOT / "data")
-            result = SchedulingAgent(tools).run(request)
-            if result.get("draft_saved") and not result.get("duplicate"):
-                try:
-                    persist_drafts(tools, ROOT / "data")
-                except OSError as exc:
-                    result["status"] = "failed"
-                    result["draft_saved"] = False
-                    result["message"] = f"草稿持久化失败: {exc}"
-                    for item in result["items"]:
-                        item["draft_save_status"] = "failed"
-            self._json(200, result)
-        except (ValueError, json.JSONDecodeError) as exc:
-            self._json(400, {"status": "invalid_request", "message": str(exc)})
-        except Exception as exc:
-            self._json(500, {"status": "error", "message": str(exc)})
+        length = int(self.headers.get("Content-Length", "0"))
+        request = json.loads(self.rfile.read(length))
+        tools = load_tools(ROOT / "data")
+        result = SchedulingAgent(tools).run(request)
+        if result.get("draft_saved") and not result.get("duplicate"):
+            persist_drafts(tools, ROOT / "data")
+        self._json(200, result)
 
     def _json(self, status, value):
         body = json.dumps(value, ensure_ascii=False).encode("utf-8")
