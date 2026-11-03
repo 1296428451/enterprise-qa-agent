@@ -34,8 +34,8 @@ API 默认监听 `127.0.0.1:18080`。健康检查 `GET /api/health`；提交排�
 - 验证与限制：[docs/03-evaluation.md](docs/03-evaluation.md)
 - AI 使用：[docs/04-ai-usage.md](docs/04-ai-usage.md)
 - 复盘：[docs/05-retrospective.md](docs/05-retrospective.md)
-- 开发规范：`.agent/SPEC.md` 是本地工作规范，按用户要求被 Git 忽略；仓库可交付的设计与约束见 [docs/02-solution.md](docs/02-solution.md)。
+- 设计与约束：[docs/02-solution.md](docs/02-solution.md)
 
 ## 重要限制
 
-`.agent/` 按要求写入 `.gitignore`，测试目录 `test/` 保持 Git 跟踪，确保克隆仓库可复现测试。当前项目为离线 deterministic mock，不证明真实模型驱动 ReAct 决策质量；不能以此声称真实模型决策效果。
+测试目录 `test/` 保持 Git 跟踪，确保克隆仓库可复现测试。当前项目为离线 deterministic mock，不证明真实模型驱动 ReAct 决策质量；不能以此声称真实模型决策效果。
