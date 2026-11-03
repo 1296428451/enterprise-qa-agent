@@ -41,5 +41,14 @@ class EnterpriseQA:
 
 
 def load_chunks(path: str | Path) -> list[Chunk]:
-    records = json.loads(Path(path).read_text(encoding="utf-8"))
+    source = Path(path)
+    if source.suffix == ".db":
+        connection = sqlite3.connect(source)
+        rows = connection.execute(
+            "SELECT c.chunk_id, d.document_id, d.version, d.version_date, c.text "
+            "FROM document_chunks c JOIN documents d ON d.id=c.document_id ORDER BY c.id"
+        ).fetchall()
+        connection.close()
+        return [Chunk(chunk_id=row[0], document_id=row[1], version=row[2], version_date=row[3], text=row[4]) for row in rows]
+    records = json.loads(source.read_text(encoding="utf-8"))
     return [Chunk(**record) for record in records]

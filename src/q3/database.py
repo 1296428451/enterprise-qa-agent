@@ -6,7 +6,7 @@ from pathlib import Path
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY,
-    document_id TEXT NOT NULL UNIQUE,
+    document_id TEXT NOT NULL,
     title TEXT NOT NULL,
     document_type TEXT NOT NULL,
     version TEXT NOT NULL,
@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS documents (
     priority INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'active',
     content TEXT NOT NULL,
-    content_hash TEXT NOT NULL
+    content_hash TEXT NOT NULL,
+    UNIQUE(document_id, version)
 );
 CREATE TABLE IF NOT EXISTS document_chunks (
     id INTEGER PRIMARY KEY,
