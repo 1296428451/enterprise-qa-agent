@@ -84,12 +84,39 @@ def import_documents(input_path: str | Path, database_path: str | Path, rebuild_
     return {"inserted": inserted, "skipped": skipped, "total": len(records)}
 
 
+def list_versions(database_path: str | Path, document_id: str | None = None) -> list[dict[str, Any]]:
+    create_database(database_path)
+    connection = sqlite3.connect(database_path)
+    try:
+        if document_id:
+            rows = connection.execute(
+                "SELECT document_id, title, document_type, version, version_date, content_hash "
+                "FROM documents WHERE document_id=? ORDER BY version_date, version",
+                (document_id,),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT document_id, title, document_type, version, version_date, content_hash "
+                "FROM documents ORDER BY document_id, version_date, version"
+            ).fetchall()
+        return [dict(zip(("document_id", "title", "document_type", "version", "version_date", "content_hash"), row)) for row in rows]
+    finally:
+        connection.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Manage enterprise knowledge documents")
-    parser.add_argument("--input", required=True, type=Path)
+    parser.add_argument("--input", type=Path)
     parser.add_argument("--db", default="data/knowledge.db", type=Path)
+    parser.add_argument("--list", action="store_true", dest="list_versions", help="列出文档版本")
+    parser.add_argument("--document-id", help="仅列出指定文档的版本")
     parser.add_argument("--rebuild-index", action="store_true")
     args = parser.parse_args(argv)
+    if args.list_versions:
+        print(json.dumps(list_versions(args.db, args.document_id), ensure_ascii=False, indent=2))
+        return 0
+    if not args.input:
+        parser.error("--input is required unless --list is used")
     try:
         print(json.dumps(import_documents(args.input, args.db, args.rebuild_index), ensure_ascii=False))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
