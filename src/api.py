@@ -28,7 +28,14 @@ class Handler(BaseHTTPRequestHandler):
             tools = load_tools(ROOT / "data")
             result = SchedulingAgent(tools).run(request)
             if result.get("draft_saved") and not result.get("duplicate"):
-                persist_drafts(tools, ROOT / "data")
+                try:
+                    persist_drafts(tools, ROOT / "data")
+                except OSError as exc:
+                    result["status"] = "failed"
+                    result["draft_saved"] = False
+                    result["message"] = f"草稿持久化失败: {exc}"
+                    for item in result["items"]:
+                        item["draft_save_status"] = "failed"
             self._json(200, result)
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(400, {"status": "invalid_request", "message": str(exc)})

@@ -55,6 +55,13 @@ class SchedulingAgent:
         trace: list[dict[str, Any]] = []
         items: list[dict[str, Any]] = []
         steps = 0
+
+        def limit_reached() -> bool:
+            return steps >= self.MAX_STEPS
+
+        def incomplete() -> dict[str, Any]:
+            return {"status": "incomplete", "draft_saved": False,
+                    "message": "达到最大执行步数", "items": items, "trace": trace}
         request_key = request.get("request_id") or hashlib.sha256(
             json.dumps(request, sort_keys=True, ensure_ascii=False).encode("utf-8")
         ).hexdigest()
@@ -68,10 +75,14 @@ class SchedulingAgent:
             return {"status": "needs_input", "draft_saved": False,
                     "message": "缺少硬性发布时间要求", "items": [], "trace": []}
 
-        for asset_id in request.get("asset_ids", []):
-            if steps >= self.MAX_STEPS:
-                return {"status": "incomplete", "draft_saved": False,
-                        "message": "达到最大执行步数", "items": items, "trace": trace}
+        asset_ids = request.get("asset_ids", [])
+        if not asset_ids:
+            return {"status": "needs_input", "draft_saved": False,
+                    "message": "缺少待处理素材 ID", "items": [], "trace": []}
+
+        for asset_id in asset_ids:
+            if limit_reached():
+                return incomplete()
             steps += 1
             asset = self.tools.read_asset(asset_id)
             trace.append({"step": steps, "tool": "read_asset", "arguments": {"asset_id": asset_id},
@@ -83,6 +94,8 @@ class SchedulingAgent:
                               "risk_reasons": ["素材信息不存在"], "suggested_slot": None,
                               "pending_confirmation": False, "draft_save_status": "not_saved"})
                 continue
+            if limit_reached():
+                return incomplete()
             steps += 1
             risks = self.tools.check_rules(asset)
             trace.append({"step": steps, "tool": "check_rules", "arguments": {"asset_id": asset_id},
@@ -93,6 +106,8 @@ class SchedulingAgent:
                               "risk_reasons": risks, "suggested_slot": None,
                               "pending_confirmation": False, "draft_save_status": "not_saved"})
                 continue
+            if limit_reached():
+                return incomplete()
             steps += 1
             slot, conflict = self.tools.find_slot(requested, request.get("alternative_slots", []))
             trace.append({"step": steps, "tool": "find_slot", "arguments": {"requested": requested},
@@ -110,6 +125,8 @@ class SchedulingAgent:
 
         if not items or any(item["review_status"] in {"blocked", "risk"} for item in items):
             return {"status": "blocked", "draft_saved": False, "items": items, "trace": trace}
+        if limit_reached():
+            return incomplete()
         draft = {"request_id": request_key, "items": items, "published": False}
         steps += 1
         saved = self.tools.save_draft(request_key, draft)
@@ -141,4 +158,6 @@ def load_tools(data_dir: str | Path = "data") -> Tools:
 
 def persist_drafts(tools: Tools, data_dir: str | Path = "data") -> None:
     path = Path(data_dir) / "drafts.json"
-    path.write_text(json.dumps(tools.drafts, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(tools.drafts, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)

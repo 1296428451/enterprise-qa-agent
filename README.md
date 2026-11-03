@@ -7,9 +7,9 @@
 要求 Python 3.10+，无第三方依赖。
 
 ```bash
-python -m unittest discover -s "C:/Users/ASUS/Desktop/小影笔试/test" -v
-python "C:/Users/ASUS/Desktop/小影笔试/src/cli.py" "C:/Users/ASUS/Desktop/小影笔试/examples/requests/conflict.json"
-python "C:/Users/ASUS/Desktop/小影笔试/src/api.py"
+python -m unittest discover -s "C:/Users/ASUS/Desktop/小影笔试/agent-code/test" -v
+python "C:/Users/ASUS/Desktop/小影笔试/agent-code/src/cli.py" "C:/Users/ASUS/Desktop/小影笔试/agent-code/examples/requests/conflict.json"
+python "C:/Users/ASUS/Desktop/小影笔试/agent-code/src/api.py"
 ```
 
 API 默认监听 `127.0.0.1:18080`。健康检查 `GET /api/health`；提交排期 `POST /api/plan`，JSON 请求体格式见 `examples/requests/`。
@@ -38,4 +38,4 @@ API 默认监听 `127.0.0.1:18080`。健康检查 `GET /api/health`；提交排�
 
 ## 重要限制
 
-按照用户要求，`test/` 和 `.agent/` 均写入 `.gitignore`。测试目录会在本机创建并运行，但 GitHub 克隆仓库时不会包含测试文件；这与题面要求提交可执行测试材料冲突。正式提交前应决定是否取消 `test/` 忽略，建议保留 tests 并停止忽略，`.agent/` 可继续忽略。当前项目为离线 deterministic mock，不证明真实模型驱动 ReAct 决策质量；不能以此声称真实模型决策效果。
+`.agent/` 按要求写入 `.gitignore`，测试目录 `test/` 保持 Git 跟踪，确保克隆仓库可复现测试。当前项目为离线 deterministic mock，不证明真实模型驱动 ReAct 决策质量；不能以此声称真实模型决策效果。
