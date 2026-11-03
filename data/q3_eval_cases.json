@@ -1,0 +1,12 @@
+[
+  {"case_id":"q3-01","question":"普通费用报销期限多久？","expected_status":"conflict_detected","expected_documents":["D01","D02"]},
+  {"case_id":"q3-02","question":"差旅报销需要什么材料？","expected_status":"completed","expected_documents":["D03"]},
+  {"case_id":"q3-03","question":"审批进度在哪里查看？","expected_status":"completed","expected_documents":["D04"]},
+  {"case_id":"q3-04","question":"公司是否提供住房补贴？","expected_status":"insufficient_evidence","expected_documents":[]},
+  {"case_id":"q3-05","question":"报销最晚什么时候提交？","expected_status":"conflict_detected","expected_documents":["D01","D02"]},
+  {"case_id":"q3-06","question":"出差报销要准备哪些材料？","expected_status":"completed","expected_documents":["D03"]},
+  {"case_id":"q3-07","question":"我想查看自己的审批流程进度","expected_status":"completed","expected_documents":["D04"]},
+  {"case_id":"q3-08","question":"普通费用报销是否有提交时限？","expected_status":"conflict_detected","expected_documents":["D01","D02"]},
+  {"case_id":"q3-09","question":"员工福利积分如何兑换？","expected_status":"insufficient_evidence","expected_documents":[]},
+  {"case_id":"q3-10","question":"发票和行程单是否是差旅报销材料？","expected_status":"completed","expected_documents":["D03"]}
+]
