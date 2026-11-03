@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.q3.agent import EnterpriseQA, load_chunks
 from src.q3.database import create_database
+from src.q3.llm import MockLLM
 
 
 class EnterpriseQATests(unittest.TestCase):
@@ -25,6 +26,12 @@ class EnterpriseQATests(unittest.TestCase):
             self.assertIn("documents", names)
             self.assertIn("document_chunks", names)
             self.assertIn("retrieval_results", names)
+
+    def test_mock_llm_adapter_is_deterministic(self):
+        planner = MockLLM()
+        plan = planner.plan("报销期限多久？")
+        self.assertEqual(plan.queries, ["报销期限多久？"])
+        self.assertTrue(planner.verify("报销期限多久？", "30天", [{"document_id": "D01"}])["verified"])
 
     def test_conflicting_policies_are_not_flattened(self):
         result = EnterpriseQA(self.chunks).answer("普通费用报销期限多久？")
