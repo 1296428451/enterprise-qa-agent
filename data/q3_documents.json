@@ -1,0 +1,6 @@
+[
+  {"chunk_id":"D01-v1-c01","document_id":"D01","version":"v1","version_date":"2026-01-01","text":"普通费用报销应在费用发生后 30 天内提交。适用于所有正式员工。","metadata":{"type":"policy","department":"all"}},
+  {"chunk_id":"D02-v1-c01","document_id":"D02","version":"v1","version_date":"2026-02-01","text":"普通费用报销应在费用发生后 15 天内提交。适用于研发部门。","metadata":{"type":"policy","department":"engineering"}},
+  {"chunk_id":"D03-v1-c01","document_id":"D03","version":"v1","version_date":"2026-03-01","text":"差旅报销需要提交发票、行程单和审批记录。","metadata":{"type":"faq","department":"all"}},
+  {"chunk_id":"D04-v1-c01","document_id":"D04","version":"v1","version_date":"2026-03-01","text":"员工可以在系统中查看自己的审批进度。","metadata":{"type":"faq","department":"all"}}
+]

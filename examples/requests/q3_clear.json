@@ -1,0 +1,15 @@
+{
+  "question": "差旅报销需要什么材料？",
+  "conversation_history": [
+    {"role": "user", "content": "我想提交差旅费用"}
+  ],
+  "config": {
+    "candidate_limit": 50,
+    "max_evidence": 8
+  },
+  "mode": {
+    "retrieval": "hybrid-mock",
+    "reranker": "jev-mock",
+    "llm": "mock"
+  }
+}

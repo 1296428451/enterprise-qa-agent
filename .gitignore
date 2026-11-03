@@ -1,4 +1,6 @@
-.agent/
+.agents/
+plan.md
+AGENTS.md
 __pycache__/
 *.py[cod]
 .venv/

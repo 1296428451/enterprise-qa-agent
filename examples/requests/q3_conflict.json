@@ -1,0 +1,14 @@
+{
+  "question": "普通费用报销期限多久？",
+  "conversation_history": [],
+  "config": {
+    "candidate_limit": 50,
+    "min_jev_score": 0.2,
+    "max_evidence": 8
+  },
+  "mode": {
+    "retrieval": "hybrid-mock",
+    "reranker": "jev-mock",
+    "llm": "mock"
+  }
+}
