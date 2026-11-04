@@ -1,0 +1,38 @@
+{
+  "benchmark": "Google FRAMES test split",
+  "evaluation_mode": "title-only gold-link proxy; not full-text RAG",
+  "queries": 824,
+  "candidates": 2507,
+  "gold_links": 2636,
+  "unique_candidate_titles": 2479,
+  "embedding_model": "all-MiniLM-L6-v2 (local 384-dimensional mean-pooled embeddings)",
+  "methods": {
+    "bm25_title_only": {
+      "samples": 824,
+      "recall@5": 0.3591977332268594,
+      "recall@10": 0.38997122753190716,
+      "mrr@10": 0.6134732817075049,
+      "ndcg@10": 0.4055218823243565
+    },
+    "all_minilm_l6_v2_title_only": {
+      "samples": 824,
+      "recall@5": 0.5291421058714748,
+      "recall@10": 0.5914545507081915,
+      "mrr@10": 0.8273843234704885,
+      "ndcg@10": 0.5949060403868672
+    },
+    "rrf_bm25_dense_title_only": {
+      "samples": 824,
+      "recall@5": 0.5197467479931073,
+      "recall@10": 0.579321517883411,
+      "mrr@10": 0.8043106603482817,
+      "ndcg@10": 0.5750191497469246
+    }
+  },
+  "limitations": [
+    "Wikipedia article bodies were unavailable because the article API/Hugging Face access failed due to proxy TLS expiry.",
+    "Each candidate contains only a Wikipedia title; this measures title matching against provided gold links, not evidence retrieval from article text.",
+    "Gold links are supporting-article sets, not necessarily unique minimal paths; metrics are document-level and binary relevance.",
+    "Dense rankings use local all-MiniLM-L6-v2 embeddings and cosine similarity; RRF uses k=60."
+  ]
+}

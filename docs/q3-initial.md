@@ -48,4 +48,21 @@ python src/q3/evaluate.py --cases data/q3_eval_cases.json --db data/knowledge.db
 - 全量 unittest：21 passed、1 skipped（本地 embedding 依赖未启用）
 
 
-外部 RAG 数据集只用于检索评测，不混入企业知识库。第三题最终验收仍以题目规定的合成 FAQ/制度场景为准，重点检查引用支持、冲突保留、资料外拒答、上下文追问和工具失败。当前 Hugging Face FRAMES 下载受本机 TLS/代理连接失败阻塞，未伪造外部数据集指标。
+**限制：**Wikipedia 文章正文因代理 TLS 过期无法取得，本评测因此采用 title-only gold-link proxy：从每题 `wiki_links` 汇总原始 URL，得到 2,507 个候选 ID，并以 URL 中的 Wikipedia 标题作为候选文本。指标仅衡量题目与 gold 标题的匹配，**不是 full-text RAG**，不应与论文正文检索结果直接比较。来源、Apache-2.0 数据集许可、文件字节数、824 行及 SHA256 见 `data/external/frames_manifest.json`。
+
+复现命令（从仓库根目录执行；dense 需要本地 `py312` embedding 环境）：
+
+```bash
+python -m unittest discover -s test -v
+python src/q3/evaluate_frames.py --data data/external/frames_test.tsv --model "<local all-MiniLM-L6-v2 path>" --output data/external/frames_eval_report.json
+```
+
+评测输出 BM25、all-MiniLM-L6-v2 dense cosine，以及 RRF（k=60）的 Recall@5/10、MRR@10、nDCG@10 与样本数。当前实测（824 queries）：
+
+| Method | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
+|---|---:|---:|---:|---:|
+| BM25 title-only | 0.3592 | 0.3900 | 0.6135 | 0.4055 |
+| all-MiniLM-L6-v2 title-only | 0.5291 | 0.5915 | 0.8274 | 0.5949 |
+| RRF BM25+dense title-only | 0.5197 | 0.5793 | 0.8043 | 0.5750 |
+
+详见机器可读报告 `data/external/frames_eval_report.json`。

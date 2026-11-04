@@ -1,0 +1,15 @@
+{
+  "dataset": "Google Research FRAMES benchmark",
+  "repository": "https://huggingface.co/datasets/google/frames-benchmark",
+  "source_file": "test.tsv",
+  "split": "test",
+  "license": "Apache-2.0 (dataset card)",
+  "citation": "Krishna et al., Fact, Fetch, and Reason: A Unified Evaluation of Retrieval-Augmented Generation, arXiv:2409.12941",
+  "source_file_url": "https://huggingface.co/datasets/google/frames-benchmark/raw/main/test.tsv",
+  "local_file": "frames_test.tsv",
+  "bytes": 484887,
+  "rows": 824,
+  "sha256": "4255093c93b595b5b04c7c8dde290b48ec87d72ca0fb0b760d9dd02740d669ff",
+  "retrieval_proxy": "2,507 unique original gold links as candidate IDs; title text extracted from each link",
+  "download_note": "The file was supplied in the workspace. Size, rows and SHA256 verified locally."
+}
