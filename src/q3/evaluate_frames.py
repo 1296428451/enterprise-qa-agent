@@ -29,7 +29,7 @@ def canonicalize(url: str) -> tuple[str | None, str | None, str | None]:
     if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
         return None, None, "missing_scheme"
     host = (parsed.hostname or "").lower()
-    if not host.endswith("wikipedia.org"):
+    if host != "wikipedia.org" and not host.endswith(".wikipedia.org"):
         return None, None, "non_wikipedia_host"
     path = unquote(parsed.path)
     if path == "/w/index.php":
