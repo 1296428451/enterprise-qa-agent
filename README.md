@@ -53,7 +53,16 @@ python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
 
 评测报告包含证据保留率、字符/token 压缩比和逐条提取结果。
 
-## FRAMES 检索代理评测
+## ReAct 搜索循环
+
+系统采用有界 ReAct 工作流：模型根据上一次检索观察选择 `search`、改写查询、`answer` 或 `insufficient_evidence`。最多执行 5 步，避免无限搜索。首次查询没有证据时，Mock planner 会自动追加查询词；真实 LLM 模式由模型返回结构化 action 和 rewritten query。
+
+```bash
+python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json
+```
+
+题库外案例包括“今年奥运会中国有没有举行？”和住房补贴问题，验证无证据时会改写查询并在上限内拒答，不凭空生成答案。`data/react_seed_documents.json` 可用于先导入一条额外知识，再重新查询；导入过程通过 SQLite 版本管理保留。最新 ReAct 评测为 3/3 状态正确、3/3 文档集合正确、步数上限全部遵守。
+
 
 `data/external/frames_test.tsv` 是 FRAMES test split。因为当前无法取得 Wikipedia 正文，该评测只比较 query 与 article title 的匹配，属于 **title-only gold-link proxy**，不能解读为全文 RAG、答案准确率或多跳推理效果。报告与数据清单见 `data/external/frames_eval_report.json` 和 `data/external/frames_manifest.json`。
 
