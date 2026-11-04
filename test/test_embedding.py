@@ -15,9 +15,12 @@ class EmbeddingTests(unittest.TestCase):
             import transformers
         except ModuleNotFoundError:
             self.skipTest("py312 embedding dependencies are not active")
-        model_path = Path(os.environ.get("FRAMES_EMBEDDING_MODEL", ""))
-        if not model_path.is_dir():
+        model_path_value = os.environ.get("FRAMES_EMBEDDING_MODEL")
+        if not model_path_value:
             self.skipTest("set FRAMES_EMBEDDING_MODEL to a local embedding model directory")
+        model_path = Path(model_path_value)
+        if not model_path.is_dir():
+            self.skipTest("configured local embedding model directory is not available")
         embedder = LocalEmbedder(model_path)
         vectors = embedder.encode(["报销期限多久？", "差旅报销需要什么材料？"])
         self.assertEqual(vectors.shape[0], 2)
