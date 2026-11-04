@@ -4,24 +4,34 @@ import json
 import sqlite3
 from pathlib import Path
 
+from .llm import MockLLM
 from .models import Answer, Chunk
-from .retrieval import EvidenceSelector, MockJevReranker, detect_conflict, hybrid_candidates
+from .retrieval import EvidenceSelector, MockJevReranker, detect_conflict, hybrid_candidates, merge_candidates
 
 
 class EnterpriseQA:
-    def __init__(self, chunks: list[Chunk], candidate_limit: int = 50, max_evidence: int = 8, semantic_retriever=None):
+    def __init__(self, chunks: list[Chunk], candidate_limit: int = 50, max_evidence: int = 8,
+                 semantic_retriever=None, reranker=None, llm=None):
         self.chunks = chunks
         self.candidate_limit = candidate_limit
         self.semantic_retriever = semantic_retriever
         self.selector = EvidenceSelector(maximum=max_evidence)
-        self.reranker = MockJevReranker()
+        self.reranker = reranker or MockJevReranker()
+        self.llm = llm or MockLLM()
 
     def answer(self, question: str, history: list[dict] | None = None) -> Answer:
-        trace = [{"action": "plan_queries", "result": "deterministic query plan", "query": question}]
-        candidates = hybrid_candidates(question, self.chunks, self.candidate_limit, self.semantic_retriever)
+        plan = self.llm.plan(question, history)
+        if not plan.queries or not all(isinstance(query, str) and query.strip() for query in plan.queries):
+            raise ValueError("planner must return a non-empty list of query strings")
+        if not isinstance(plan.intent, str):
+            raise ValueError("planner intent must be a string")
+        trace = [{"action": "plan_queries", "result": "queries planned", "queries": plan.queries, "intent": plan.intent}]
+        groups = [hybrid_candidates(query, self.chunks, self.candidate_limit, self.semantic_retriever)
+                  for query in plan.queries]
+        candidates = merge_candidates(groups, self.candidate_limit)
         trace.append({"action": "hybrid_retrieve", "result": f"{len(candidates)} candidates"})
         ranked = self.reranker.score(question, candidates)
-        trace.append({"action": "jev_rerank", "result": f"{len(ranked)} ranked candidates"})
+        trace.append({"action": "rerank", "result": f"{len(ranked)} ranked candidates"})
         evidence = self.selector.select(ranked)
         citations = self.selector.citations(evidence)
         trace.append({"action": "select_evidence", "result": f"{len(evidence)} evidence chunks"})
@@ -44,10 +54,12 @@ class EnterpriseQA:
                           {"candidate_count": len(candidates), "selected_count": len(evidence)},
                           {"verified": False, "conflict_detected": True, "action": "ask_user"})
         answer = evidence[0].chunk.text
-        trace.append({"action": "verify_answer", "result": "passed"})
-        return Answer("completed", answer, citations, [], trace,
-                      {"candidate_count": len(candidates), "selected_count": len(evidence)},
-                      {"verified": True, "conflict_detected": False})
+        verification = self.llm.verify(question, answer, citations)
+        trace.append({"action": "verify_answer", "result": "passed" if verification["verified"] else "unsupported claims"})
+        status = "completed" if verification["verified"] else "insufficient_evidence"
+        gaps = [] if verification["verified"] else verification["unsupported_claims"] or ["答案未通过引用核验"]
+        return Answer(status, answer if verification["verified"] else None, citations, gaps, trace,
+                      {"candidate_count": len(candidates), "selected_count": len(evidence)}, verification)
 
 
 def load_chunks(path: str | Path) -> list[Chunk]:

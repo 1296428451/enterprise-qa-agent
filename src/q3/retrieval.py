@@ -52,9 +52,11 @@ def merge_candidates(groups: list[list[ScoredChunk]], limit: int = 50) -> list[S
     for group in groups:
         for item in group:
             current = merged.get(item.chunk.chunk_id)
-            if current is None or item.bm25_score > current.bm25_score:
-                merged[item.chunk.chunk_id] = item
-    return sorted(merged.values(), key=lambda item: item.bm25_score, reverse=True)[:limit]
+            bm25_score = max(current.bm25_score if current else 0.0, item.bm25_score)
+            vector_score = max(current.vector_score if current else 0.0, item.vector_score)
+            rerank_score = max(current.rerank_score if current else 0.0, item.rerank_score)
+            merged[item.chunk.chunk_id] = ScoredChunk(item.chunk, bm25_score, vector_score, rerank_score)
+    return sorted(merged.values(), key=lambda item: max(item.bm25_score, item.vector_score), reverse=True)[:limit]
 
 
 def normalize_scores(items: list[ScoredChunk]) -> list[ScoredChunk]:

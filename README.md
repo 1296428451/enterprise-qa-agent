@@ -31,6 +31,12 @@ python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebui
 python src/q3/manage.py --list --db data/knowledge.db
 ```
 
+默认使用离线 Mock。可显式启用 OpenAI-compatible planner/verifier 或 Provider reranker；先在当前 shell 中配置 `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_API_KEY` 和/或 `RERANK_BASE_URL`、`RERANK_MODEL`、`RERANK_API_KEY`，再按需传入 `--llm openai-compatible`、`--reranker provider`。密钥只从环境变量读取，不写入项目文件。真实 provider 请求失败或响应格式不正确时会直接报错，不会静默降级到 Mock。
+
+```bash
+python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
+```
+
 新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 仅重建 SQLite 文本索引，不代表 FAISS 向量索引刷新。SQLite 与向量文件属于本地运行状态，不应提交。
 
 ## FRAMES 检索代理评测

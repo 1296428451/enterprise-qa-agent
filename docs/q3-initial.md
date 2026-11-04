@@ -14,7 +14,7 @@ python src/q3/cli.py --input examples/requests/q3_conflict.json
 
 ## 模型状态
 
-本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。Reranker 可通过 provider adapter 配置，但默认不发网络请求；小于 1B 的本地 reranker 权重未成功下载并启用。真实 LLM planner/verifier 也尚未接入，因此目前不声称真实模型的规划或答案核验质量。
+本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。Reranker 可通过 CLI 的 `--reranker provider` 显式启用 provider adapter；真实 LLM 可通过 `--llm openai-compatible` 启用 planner/verifier。两者默认仍使用离线 Mock，不发网络请求；需要配置相应环境变量。接口已通过模拟 HTTP 的单测，但本机未配置 provider 凭据，因此本轮未验证真实服务调用。小于 1B 的本地 reranker 权重仍未下载并启用。
 
 ## 合成问答专项评测
 
