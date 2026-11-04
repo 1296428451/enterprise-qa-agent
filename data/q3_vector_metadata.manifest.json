@@ -1,4 +1,4 @@
 {
-  "model": "E:\\Users\\ASUS\\PycharmProjects\\pythonProject1\\MyServer\\models\\AI-ModelScope\\all-MiniLM-L6-v2",
+  "model": "models/all-MiniLM-L6-v2",
   "chunks": 4
 }
