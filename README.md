@@ -39,6 +39,16 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 仅重建 SQLite 文本索引，不代表 FAISS 向量索引刷新。SQLite 与向量文件属于本地运行状态，不应提交。
 
+## Query-Aware Evidence Extraction
+
+重排后取 Top 20 候选，由 LLM 针对用户问题从每条候选中提取相关证据片段，去除无关内容以提高信噪比。输出为编号证据项（source ID + key info + quote），与用户问题组合为最终回答输入。提示词模板见 `src/q3/query_aware.py` 中的 `QUERY_AWARE_PROMPT`。
+
+```bash
+python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
+```
+
+评测报告包含证据保留率、字符/token 压缩比和逐条提取结果。
+
 ## FRAMES 检索代理评测
 
 `data/external/frames_test.tsv` 是 FRAMES test split。因为当前无法取得 Wikipedia 正文，该评测只比较 query 与 article title 的匹配，属于 **title-only gold-link proxy**，不能解读为全文 RAG、答案准确率或多跳推理效果。报告与数据清单见 `data/external/frames_eval_report.json` 和 `data/external/frames_manifest.json`。

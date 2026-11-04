@@ -1,0 +1,139 @@
+{
+  "evaluation": "query-aware evidence extraction (mock)",
+  "cases": 3,
+  "evidence_preserved_rate": 1.0,
+  "overall_char_compression_ratio": 0.383,
+  "overall_token_compression_ratio": 0.372,
+  "rows": [
+    {
+      "question": "报销期限多久？",
+      "source_chars": 187,
+      "extracted_chars": 64,
+      "char_compression_ratio": 0.342,
+      "source_tokens": 167,
+      "extracted_tokens": 55,
+      "token_compression_ratio": 0.329,
+      "expected_evidence_ids": [
+        "D01",
+        "D02"
+      ],
+      "actual_evidence_ids": [
+        "D01",
+        "D02",
+        "D03"
+      ],
+      "evidence_preserved": true,
+      "noise_removed": "mock: removed sentences with low question-token overlap",
+      "evidence_items": [
+        {
+          "source_id": "D01",
+          "relevance": "medium",
+          "quote": "普通费用报销应在费用发生后 30 天内提交。",
+          "key_info": "普通费用报销应在费用发生后 30 天内提交。"
+        },
+        {
+          "source_id": "D02",
+          "relevance": "medium",
+          "quote": "普通费用报销应在费用发生后 15 天内提交。",
+          "key_info": "普通费用报销应在费用发生后 15 天内提交。"
+        },
+        {
+          "source_id": "D03",
+          "relevance": "medium",
+          "quote": "差旅报销需要提交发票、行程单和审批记录。",
+          "key_info": "差旅报销需要提交发票、行程单和审批记录。"
+        },
+        {
+          "source_id": "D04",
+          "relevance": "none",
+          "quote": "",
+          "key_info": ""
+        }
+      ]
+    },
+    {
+      "question": "差旅报销需要什么材料？",
+      "source_chars": 141,
+      "extracted_chars": 93,
+      "char_compression_ratio": 0.66,
+      "source_tokens": 127,
+      "extracted_tokens": 81,
+      "token_compression_ratio": 0.638,
+      "expected_evidence_ids": [
+        "D03"
+      ],
+      "actual_evidence_ids": [
+        "D01",
+        "D02",
+        "D03"
+      ],
+      "evidence_preserved": true,
+      "noise_removed": "mock: removed sentences with low question-token overlap",
+      "evidence_items": [
+        {
+          "source_id": "D01",
+          "relevance": "medium",
+          "quote": "普通费用报销应在费用发生后 30 天内提交。",
+          "key_info": "普通费用报销应在费用发生后 30 天内提交。"
+        },
+        {
+          "source_id": "D02",
+          "relevance": "medium",
+          "quote": "普通费用报销应在费用发生后 15 天内提交。",
+          "key_info": "普通费用报销应在费用发生后 15 天内提交。"
+        },
+        {
+          "source_id": "D03",
+          "relevance": "high",
+          "quote": "差旅报销需要提交发票、行程单和审批记录。 出差前需在系统中提交出差申请。 出差补贴标准按职级划分。",
+          "key_info": "差旅报销需要提交发票、行程单和审批记录。"
+        },
+        {
+          "source_id": "D04",
+          "relevance": "none",
+          "quote": "",
+          "key_info": ""
+        }
+      ]
+    },
+    {
+      "question": "员工福利积分如何兑换？",
+      "source_chars": 82,
+      "extracted_chars": 0,
+      "char_compression_ratio": 0.0,
+      "source_tokens": 72,
+      "extracted_tokens": 0,
+      "token_compression_ratio": 0.0,
+      "expected_evidence_ids": [],
+      "actual_evidence_ids": [],
+      "evidence_preserved": true,
+      "noise_removed": "mock: removed sentences with low question-token overlap",
+      "evidence_items": [
+        {
+          "source_id": "D01",
+          "relevance": "none",
+          "quote": "",
+          "key_info": ""
+        },
+        {
+          "source_id": "D02",
+          "relevance": "none",
+          "quote": "",
+          "key_info": ""
+        },
+        {
+          "source_id": "D03",
+          "relevance": "none",
+          "quote": "",
+          "key_info": ""
+        },
+        {
+          "source_id": "D04",
+          "relevance": "none",
+          "quote": "",
+          "key_info": ""
+        }
+      ]
+    }
+  ]
+}
