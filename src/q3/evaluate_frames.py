@@ -56,7 +56,7 @@ def load_frames(path: str | Path) -> tuple[list[dict], dict[str, str], dict]:
         raise ValueError("TSV must contain Prompt, wiki_links and reasoning_types columns")
     candidates: dict[str, str] = {}
     raw_gold_urls: set[str] = set()
-    all_urls: set[str] = set()
+    raw_candidate_urls: set[str] = set()
     excluded_unique: dict[str, str] = {}
     excluded_occurrences: Counter[str] = Counter()
     gold_occurrences = candidate_occurrences = used_gold_links = 0
@@ -71,13 +71,13 @@ def load_frames(path: str | Path) -> tuple[list[dict], dict[str, str], dict]:
                 raise ValueError("wiki_links entries must be strings")
             gold_occurrences += 1
             raw_gold_urls.add(url)
-            all_urls.add(url)
         column_links = [value.strip() for key, value in row.items()
                         if key.startswith("wikipedia_link_") and value.strip()]
-        links = list(dict.fromkeys([*column_links, *gold_links]))
-        for url in links:
+        for url in column_links:
+            if not isinstance(url, str):
+                raise ValueError("candidate links must be strings")
+            raw_candidate_urls.add(url)
             candidate_occurrences += 1
-            all_urls.add(url)
             key, title, error = canonicalize(url)
             if error:
                 excluded_occurrences[error] += 1
@@ -95,10 +95,11 @@ def load_frames(path: str | Path) -> tuple[list[dict], dict[str, str], dict]:
         empty_gold_rows += row["empty_gold"]
     stats = {
         "non_empty_rows": len(rows),
-        "raw_url_count": len(raw_gold_urls),
-        "candidate_source_raw_url_count": len(all_urls),
         "gold_link_occurrences": gold_occurrences,
+        "raw_gold_url_count": len(raw_gold_urls),
+        "raw_candidate_url_count": len(raw_candidate_urls),
         "candidate_link_occurrences": candidate_occurrences,
+        "gold_links_absent_from_candidate_columns": len({key for row in rows for key in row["gold_ids"]} - set(candidates)),
         "used_gold_links": used_gold_links,
         "valid_candidate_url_count": len(candidates),
         "distinct_normalized_titles": len({v.casefold() for v in candidates.values()}),

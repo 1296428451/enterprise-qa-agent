@@ -7,10 +7,11 @@
   "corpus": "Wikipedia_link_* columns from FRAMES test rows, canonicalized to title-only candidates; wiki_links are relevance judgments",
   "counts": {
     "non_empty_rows": 824,
-    "raw_url_count": 2507,
-    "candidate_source_raw_url_count": 2515,
     "gold_link_occurrences": 2636,
-    "candidate_link_occurrences": 2644,
+    "raw_gold_url_count": 2507,
+    "raw_candidate_url_count": 2507,
+    "candidate_link_occurrences": 2636,
+    "gold_links_absent_from_candidate_columns": 0,
     "used_gold_links": 2632,
     "valid_candidate_url_count": 2475,
     "distinct_normalized_titles": 2475,
@@ -29,8 +30,8 @@
     }
   },
   "run": {
-    "started_at_utc": "2026-11-04T02:12:35.333284+00:00",
-    "completed_at_utc": "2026-11-04T02:13:30.895624+00:00",
+    "started_at_utc": "2026-11-04T02:18:40.887119+00:00",
+    "completed_at_utc": "2026-11-04T02:19:39.291658+00:00",
     "method": "rrf",
     "python": "3.12.7",
     "model": "all-MiniLM-L6-v2",

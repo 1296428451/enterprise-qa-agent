@@ -15,6 +15,7 @@
     "queries": 824,
     "gold_link_occurrences": 2636,
     "unique_raw_gold_urls": 2507,
+    "raw_candidate_urls_from_wikipedia_link_columns": 2507,
     "canonical_candidate_urls": 2475,
     "distinct_normalized_titles": 2475,
     "excluded_unique_urls": 4,

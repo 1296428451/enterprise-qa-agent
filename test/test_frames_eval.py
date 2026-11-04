@@ -33,9 +33,13 @@ class FramesEvaluationTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / "data/external/frames_test.tsv"
         rows, candidates, stats = load_frames(path)
         self.assertEqual(len(rows), 824)
-        self.assertGreater(stats["valid_candidate_url_count"], 2400)
-        self.assertEqual(stats["empty_gold_count"], 0)
-        self.assertGreater(stats["excluded_unique_url_count"], 0)
+        self.assertEqual(stats["gold_link_occurrences"], 2636)
+        self.assertEqual(stats["raw_gold_url_count"], 2507)
+        self.assertEqual(stats["raw_candidate_url_count"], 2507)
+        self.assertEqual(stats["gold_links_absent_from_candidate_columns"], 0)
+        self.assertEqual(stats["excluded_occurrences_by_reason"], {
+            "missing_scheme": 2, "non_wikipedia_host": 1, "special_search": 1,
+        })
         self.assertEqual(len(candidates), stats["valid_candidate_url_count"])
 
 
