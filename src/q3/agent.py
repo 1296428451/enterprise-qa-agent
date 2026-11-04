@@ -48,9 +48,11 @@ class EnterpriseQA:
         if not evidence:
             return Answer("insufficient_evidence", None, [], ["没有检索到相关资料"], trace,
                           {"candidate_count": 0, "selected_count": 0}, {"verified": False})
-        conflict = detect_conflict(evidence)
+        extracted_items = [top_k[e.index - 1] for e in extraction.evidence
+                           if e.relevance != "none" and e.quote and 1 <= e.index <= len(top_k)]
+        conflict = detect_conflict(extracted_items or evidence)
         versions_by_document = {}
-        for item in evidence:
+        for item in (extracted_items or evidence):
             versions_by_document.setdefault(item.chunk.document_id, set()).add(item.chunk.version)
         version_conflict = any(len(versions) > 1 for versions in versions_by_document.values())
         if version_conflict:
@@ -64,12 +66,32 @@ class EnterpriseQA:
                           {"candidate_count": len(candidates), "selected_count": len(evidence)},
                           {"verified": False, "conflict_detected": True, "action": "ask_user"})
         answer_input = extraction.to_answer_input()
-        answer = evidence[0].chunk.text
-        verification = self.llm.verify(question, answer, citations)
+        extracted_citations = [
+            {"document_id": e.source_id, "chunk_id": e.chunk_id,
+             "version": next((c.chunk.version for c in top_k if c.chunk.chunk_id == e.chunk_id), ""),
+             "quote": e.quote, "key_info": e.key_info}
+            for e in extraction.evidence if e.relevance != "none" and e.quote
+        ]
+        if not extracted_citations:
+            trace.append({"action": "answer_from_evidence", "result": "no relevant evidence extracted"})
+            return Answer("insufficient_evidence", None, [], ["抽取后未发现与问题相关的证据"], trace,
+                          {"candidate_count": len(candidates), "selected_count": len(evidence),
+                           "extracted_evidence_count": 0, "answer_input": answer_input},
+                          {"verified": False})
+        generated = self.llm.answer_from_evidence(question, answer_input)
+        answer_text = generated.get("answer", "")
+        cited_indices = generated.get("citation_indices", [])
+        valid_citations = [extracted_citations[i - 1] for i in cited_indices
+                           if 1 <= i <= len(extracted_citations)]
+        if not valid_citations:
+            valid_citations = extracted_citations
+        trace.append({"action": "answer_from_evidence",
+                      "result": f"generated answer with {len(valid_citations)} citations"})
+        verification = self.llm.verify(question, answer_text, valid_citations)
         trace.append({"action": "verify_answer", "result": "passed" if verification["verified"] else "unsupported claims"})
-        status = "completed" if verification["verified"] else "insufficient_evidence"
-        gaps = [] if verification["verified"] else verification["unsupported_claims"] or ["答案未通过引用核验"]
-        return Answer(status, answer if verification["verified"] else None, citations, gaps, trace,
+        status = "completed" if verification["verified"] and answer_text else "insufficient_evidence"
+        gaps = [] if status == "completed" else verification.get("unsupported_claims", []) or ["答案未通过引用核验"]
+        return Answer(status, answer_text if status == "completed" else None, valid_citations, gaps, trace,
                       {"candidate_count": len(candidates), "selected_count": len(evidence),
                        "extracted_evidence_count": extraction.candidates_with_evidence,
                        "compression_ratio": round(extraction.compression_ratio, 3),

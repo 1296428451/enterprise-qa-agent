@@ -16,6 +16,11 @@ class MockLLM:
     def plan(self, question: str, history: list[dict] | None = None) -> QueryPlan:
         return QueryPlan([question], question)
 
+    def answer_from_evidence(self, question: str, evidence_input: str) -> dict:
+        lines = [line.strip() for line in evidence_input.splitlines() if line.strip().startswith("Quote:")]
+        quote = lines[0].replace("Quote:", "", 1).strip() if lines else ""
+        return {"answer": quote, "citation_indices": [1] if quote else []}
+
     def verify(self, question: str, answer: str | None, citations: list[dict]) -> dict:
         verified = bool(answer and citations)
         return {"verified": verified, "unsupported_claims": [], "action": "answer" if verified else "ask_user"}
@@ -38,7 +43,7 @@ class OpenAICompatibleLLM:
             ],
         }).encode("utf-8")
         request = Request(
-            self.base_url + "/chat/completions",
+            self.chat_completions_url,
             data=body,
             headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.api_key},
         )
@@ -61,6 +66,17 @@ class OpenAICompatibleLLM:
         if not isinstance(intent, str):
             raise ValueError("LLM planner intent must be a string")
         return QueryPlan(queries, intent)
+
+    def answer_from_evidence(self, question: str, evidence_input: str) -> dict:
+        result = self._complete_json(
+            "Answer using only numbered evidence. Cite factual claims with [index]. If evidence is insufficient or conflicting, return an empty answer. Return JSON with string answer and integer-array citation_indices.",
+            {"question": question, "evidence": evidence_input},
+        )
+        answer = result.get("answer")
+        citations = result.get("citation_indices")
+        if not isinstance(answer, str) or not isinstance(citations, list) or not all(isinstance(i, int) for i in citations):
+            raise ValueError("LLM answer must contain answer and citation_indices")
+        return result
 
     def verify(self, question: str, answer: str | None, citations: list[dict]) -> dict:
         result = self._complete_json(

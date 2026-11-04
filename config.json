@@ -1,0 +1,19 @@
+{
+  "database": "data/knowledge.db",
+  "documents": "data/q3_documents.json",
+  "retrieval": {
+    "candidate_limit": 200,
+    "rerank_top_k": 20,
+    "max_evidence": 8
+  },
+  "query_aware": {
+    "enabled": true,
+    "max_tokens": 20000,
+    "require_exact_quotes": true
+  },
+  "runtime": {
+    "llm": "mock",
+    "reranker": "mock",
+    "query_aware_mode": "mock"
+  }
+}

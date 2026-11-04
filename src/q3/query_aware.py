@@ -61,6 +61,8 @@ class ExtractionResult:
     total_source_chars: int
     total_extracted_chars: int
     compression_note: str
+    token_budget: int = 20000
+    candidates_skipped_budget: int = 0
 
     @property
     def compression_ratio(self) -> float:
@@ -78,7 +80,9 @@ class ExtractionResult:
         return "\n".join(parts)
 
 
-def estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str, tokenizer=None) -> int:
+    if tokenizer is not None:
+        return len(tokenizer.encode(text))
     cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
     ascii_chars = len(text) - cjk
     return cjk + max(ascii_chars // 4, 0)
@@ -171,9 +175,18 @@ class OpenAICompatibleQueryAwareExtractor:
     def extract(self, question: str, candidates: list[ScoredChunk]) -> ExtractionResult:
         payload_candidates = []
         total_src = 0
+        skipped_budget = 0
+        used_tokens = estimate_tokens(QUERY_AWARE_PROMPT) + estimate_tokens(question)
+        selected_candidates = []
         for rank, item in enumerate(candidates, 1):
             text = item.chunk.text
+            candidate_tokens = estimate_tokens(json.dumps({"index": rank, "source_id": item.chunk.document_id, "text": text}, ensure_ascii=False))
+            if used_tokens + candidate_tokens > self.max_tokens:
+                skipped_budget += 1
+                continue
+            used_tokens += candidate_tokens
             total_src += len(text)
+            selected_candidates.append((rank, item))
             payload_candidates.append({
                 "index": rank,
                 "source_id": item.chunk.document_id,
@@ -183,19 +196,22 @@ class OpenAICompatibleQueryAwareExtractor:
         items = raw.get("evidence")
         if not isinstance(items, list):
             raise ValueError("Query-aware extraction evidence must be a list")
+        candidate_by_rank = dict(selected_candidates)
         evidence: list[ExtractedEvidence] = []
         total_ext = 0
         seen: set[int] = set()
         for entry in items:
             idx = int(entry["index"])
-            if idx < 1 or idx > len(candidates) or idx in seen:
+            if idx not in candidate_by_rank or idx in seen:
                 raise ValueError(f"Invalid or duplicate evidence index: {idx}")
             seen.add(idx)
-            candidate = candidates[idx - 1]
+            candidate = candidate_by_rank[idx]
             relevance = entry.get("relevance", "none")
             if relevance not in {"high", "medium", "none"}:
                 raise ValueError(f"Invalid relevance: {relevance}")
             quote = str(entry.get("quote", ""))
+            if quote and quote not in candidate.chunk.text:
+                raise ValueError(f"Extracted quote is not an exact span of candidate {idx}")
             key_info = str(entry.get("key_info", ""))
             total_ext += len(quote)
             evidence.append(ExtractedEvidence(
@@ -215,13 +231,14 @@ class OpenAICompatibleQueryAwareExtractor:
             total_source_chars=total_src,
             total_extracted_chars=total_ext,
             compression_note=str(raw.get("compression_note", "")),
+            token_budget=self.max_tokens,
+            candidates_skipped_budget=skipped_budget,
         )
 
     @classmethod
-    def from_environment(cls):
+    def from_environment(cls, max_tokens: int = 20000):
         import os
-        return cls(
-            os.environ["QUERY_AWARE_BASE_URL"] or os.environ["OPENAI_BASE_URL"],
-            os.environ.get("QUERY_AWARE_MODEL") or os.environ["OPENAI_MODEL"],
-            os.environ["QUERY_AWARE_API_KEY"] or os.environ["OPENAI_API_KEY"],
-        )
+        base_url = os.environ.get("QUERY_AWARE_BASE_URL") or os.environ["OPENAI_BASE_URL"]
+        model = os.environ.get("QUERY_AWARE_MODEL") or os.environ["OPENAI_MODEL"]
+        api_key = os.environ.get("QUERY_AWARE_API_KEY") or os.environ["OPENAI_API_KEY"]
+        return cls(base_url, model, api_key, max_tokens=max_tokens)
