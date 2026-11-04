@@ -10,6 +10,15 @@
   "bytes": 484887,
   "rows": 824,
   "sha256": "4255093c93b595b5b04c7c8dde290b48ec87d72ca0fb0b760d9dd02740d669ff",
-  "retrieval_proxy": "2,507 unique original gold links as candidate IDs; title text extracted from each link",
-  "download_note": "The file was supplied in the workspace. Size, rows and SHA256 verified locally."
+  "retrieval_proxy": "Title-only gold-link proxy: candidate articles derive from wikipedia_link_* columns; canonical IDs are HTTPS Wikipedia article URLs and qrels come from wiki_links. Not full-text retrieval or QA accuracy.",
+  "candidate_statistics": {
+    "queries": 824,
+    "gold_link_occurrences": 2636,
+    "unique_raw_gold_urls": 2507,
+    "canonical_candidate_urls": 2475,
+    "distinct_normalized_titles": 2475,
+    "excluded_unique_urls": 4,
+    "exclusions": {"missing_scheme": 2, "non_wikipedia_host": 1, "special_search": 1}
+  },
+  "download_note": "Local file size, row count and SHA256 were verified. The current upstream file could not be fetched to compare its hash. Wikipedia article-body retrieval was blocked by proxy TLS validation."
 }

@@ -7,3 +7,4 @@ __pycache__/
 .env
 data/drafts.json
 data/*.lock
+data/external/frames-benchmark/.cache/
