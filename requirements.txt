@@ -4,3 +4,4 @@ transformers>=4.45
 sentencepiece>=0.2
 safetensors>=0.4
 openai>=1.0
+pytest>=8.0

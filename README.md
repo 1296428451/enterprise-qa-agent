@@ -8,14 +8,14 @@ Python 3.12 环境建议使用项目已配置的 `py312`：
 
 ```bash
 conda activate py312
-python -m unittest discover -s test -v
+pytest test/ -v
 ```
 
 Embedding 冒烟测试默认跳过；设置本地模型目录后可启用：
 
 ```bash
 export FRAMES_EMBEDDING_MODEL=path/to/all-MiniLM-L6-v2
-python -m unittest test.test_embedding -v
+pytest test/test_embedding.py -v
 ```
 
 PowerShell 可用 `$env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"` 设置变量。
@@ -54,7 +54,7 @@ python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
 `data/external/frames_test.tsv` 是 FRAMES test split。因为当前无法取得 Wikipedia 正文，该评测只比较 query 与 article title 的匹配，属于 **title-only gold-link proxy**，不能解读为全文 RAG、答案准确率或多跳推理效果。报告与数据清单见 `data/external/frames_eval_report.json` 和 `data/external/frames_manifest.json`。
 
 ```bash
-python -m unittest discover -s test -v
+pytest test/ -v
 python src/q3/evaluate_frames.py --method bm25
 python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 ```
