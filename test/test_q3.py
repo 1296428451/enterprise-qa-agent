@@ -160,7 +160,29 @@ def test_specific_question_returns_citation(chunks):
     assert result.verification["verified"]
 
 
-def test_out_of_scope_returns_insufficient_evidence(chunks):
+def test_react_rewrites_query_after_empty_search(chunks):
+    class RewriteLLM(MockLLM):
+        def __init__(self):
+            self.decisions = [("search", "不存在的关键词"), ("search", "差旅报销需要什么材料？"), ("answer", None)]
+        def decide_action(self, question, observations, history=None):
+            action, query = self.decisions[min(len(observations), len(self.decisions) - 1)]
+            return type("Decision", (), {"action": action, "query": query, "reason": "测试"})()
+    result = EnterpriseQA(chunks, llm=RewriteLLM()).answer("材料要求是什么？")
+    assert result.status == "completed"
+    assert any(item.get("action") == "search" and item.get("query") == "不存在的关键词" for item in result.trace)
+    assert any(item.get("action") == "search" and item.get("query") == "差旅报销需要什么材料？" for item in result.trace)
+
+
+def test_react_max_steps_caps_search_loop(chunks):
+    class EndlessLLM(MockLLM):
+        def decide_action(self, question, observations, history=None):
+            return type("Decision", (), {"action": "search", "query": "无关问题", "reason": "继续"})()
+    result = EnterpriseQA(chunks, llm=EndlessLLM(), max_steps=5).answer("无关问题")
+    assert result.status == "insufficient_evidence"
+    assert len([item for item in result.trace if item.get("step")]) == 5
+
+
+def test_react_out_of_scope_stays_insufficient(chunks):
     result = EnterpriseQA(chunks).answer("公司是否提供住房补贴？")
     assert result.status == "insufficient_evidence"
     assert not result.verification["verified"]

@@ -14,6 +14,7 @@
   "runtime": {
     "llm": "mock",
     "reranker": "mock",
-    "query_aware_mode": "mock"
+    "query_aware_mode": "mock",
+    "max_steps": 5
   }
 }

@@ -11,17 +11,18 @@ from .retrieval import EvidenceSelector, MockJevReranker, detect_conflict, hybri
 
 
 class EnterpriseQA:
-    def __init__(self, chunks: list[Chunk], candidate_limit: int = 50, max_evidence: int = 8,
-                 semantic_retriever=None, reranker=None, llm=None, extractor=None):
+    def __init__(self, chunks: list[Chunk], candidate_limit: int = 200, max_evidence: int = 8,
+                 semantic_retriever=None, reranker=None, llm=None, extractor=None, max_steps: int = 5):
         self.chunks = chunks
         self.candidate_limit = candidate_limit
+        self.max_steps = max_steps
         self.semantic_retriever = semantic_retriever
         self.selector = EvidenceSelector(maximum=max_evidence)
         self.reranker = reranker or MockJevReranker()
         self.llm = llm or MockLLM()
         self.extractor = extractor or MockQueryAwareExtractor()
 
-    def answer(self, question: str, history: list[dict] | None = None) -> Answer:
+    def _answer_once(self, question: str, history: list[dict] | None = None) -> Answer:
         plan = self.llm.plan(question, history)
         if not plan.queries or not all(isinstance(query, str) and query.strip() for query in plan.queries):
             raise ValueError("planner must return a non-empty list of query strings")
@@ -96,6 +97,53 @@ class EnterpriseQA:
                        "extracted_evidence_count": extraction.candidates_with_evidence,
                        "compression_ratio": round(extraction.compression_ratio, 3),
                        "answer_input": answer_input}, verification)
+
+    def answer(self, question: str, history: list[dict] | None = None) -> Answer:
+        observations = []
+        trace = []
+        current_query = question
+        result = None
+        for step in range(self.max_steps):
+            decision = self.llm.decide_action(question, observations, history)
+            trace.append({"step": step + 1, "action": decision.action, "query": decision.query,
+                          "tool_parameters": {"candidate_limit": self.candidate_limit, "rerank_top": 20},
+                          "result_summary": "", "next_action_reason": decision.reason})
+            if decision.action == "search":
+                current_query = decision.query or current_query
+                result = self._answer_once(current_query, history)
+                observation = {"query": current_query, "evidence_count": len(result.citations),
+                               "conflict": result.status in {"conflict_detected", "version_conflict"},
+                               "status": result.status}
+                if result.status in {"insufficient_evidence", "conflict_detected", "version_conflict"}:
+                    observation["rewritten_query"] = current_query != question
+                observations.append(observation)
+                trace[-1]["result_summary"] = result.status
+                if result.status in {"conflict_detected", "version_conflict"}:
+                    return result
+                continue
+            if decision.action in {"ask_user", "insufficient_evidence", "stop"}:
+                if result is None:
+                    return Answer("insufficient_evidence", None, [], [decision.reason or "证据不足"], trace,
+                                  {"candidate_count": 0, "selected_count": 0}, {"verified": False, "action": "ask_user"})
+                result.trace = trace + result.trace
+                if decision.action == "ask_user":
+                    result.verification["action"] = "ask_user"
+                if decision.action in {"insufficient_evidence", "stop"} and result.status == "completed":
+                    result.status, result.answer = "insufficient_evidence", None
+                return result
+            if decision.action == "answer" and result is not None:
+                result.trace = trace + result.trace
+                return result
+            raise ValueError(f"unsupported action: {decision.action}")
+        if result is None:
+            return Answer("insufficient_evidence", None, [], ["达到最大推理步数"], trace,
+                          {"candidate_count": 0, "selected_count": 0}, {"verified": False, "action": "ask_user"})
+        result.trace = trace + result.trace
+        if result.status == "completed":
+            result.status, result.answer = "insufficient_evidence", None
+        result.gaps = result.gaps or ["达到最大推理步数"]
+        result.verification["action"] = "ask_user"
+        return result
 
 
 def load_chunks(path: str | Path) -> list[Chunk]:

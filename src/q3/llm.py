@@ -12,9 +12,28 @@ class QueryPlan:
     intent: str
 
 
+@dataclass
+class ActionDecision:
+    action: str
+    query: str | None = None
+    reason: str = ""
+
+
 class MockLLM:
     def plan(self, question: str, history: list[dict] | None = None) -> QueryPlan:
         return QueryPlan([question], question)
+
+    def decide_action(self, question: str, observations: list[dict], history: list[dict] | None = None) -> ActionDecision:
+        if not observations:
+            return ActionDecision("search", question, "开始检索")
+        latest = observations[-1]
+        if latest.get("conflict"):
+            return ActionDecision("ask_user", reason="发现冲突证据")
+        if latest.get("evidence_count", 0):
+            return ActionDecision("answer", reason="已有可用证据")
+        if latest.get("rewritten_query"):
+            return ActionDecision("insufficient_evidence", reason="改写查询后仍无证据")
+        return ActionDecision("search", question + " 相关制度", "首次检索无证据，改写查询")
 
     def answer_from_evidence(self, question: str, evidence_input: str) -> dict:
         lines = [line.strip() for line in evidence_input.splitlines() if line.strip().startswith("Quote:")]
@@ -54,6 +73,26 @@ class OpenAICompatibleLLM:
         if not isinstance(parsed, dict):
             raise ValueError("LLM response must be a JSON object")
         return parsed
+
+    def decide_action(self, question: str, observations: list[dict], history: list[dict] | None = None) -> ActionDecision:
+        result = self._complete_json(
+            "Choose exactly one action: search, answer, ask_user, or insufficient_evidence. For search provide a rewritten query. Return strict JSON with action, optional query, and reason.",
+            {"question": question, "observations": observations, "history": history or []},
+        )
+        action = result.get("action")
+        if action == "stop":
+            action = "insufficient_evidence"
+        if action not in {"search", "answer", "ask_user", "insufficient_evidence"}:
+            raise ValueError("LLM action must be search, answer, ask_user, or insufficient_evidence")
+        query = result.get("query")
+        if action == "search" and (not isinstance(query, str) or not query.strip()):
+            raise ValueError("LLM search action requires a non-empty query")
+        if query is not None and not isinstance(query, str):
+            raise ValueError("LLM action query must be a string")
+        reason = result.get("reason", "")
+        if not isinstance(reason, str):
+            raise ValueError("LLM action reason must be a string")
+        return ActionDecision(action, query, reason)
 
     def plan(self, question: str, history: list[dict] | None = None) -> QueryPlan:
         result = self._complete_json(

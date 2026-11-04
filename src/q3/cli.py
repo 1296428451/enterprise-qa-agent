@@ -24,8 +24,9 @@ def main():
     parser = argparse.ArgumentParser(description="Question three enterprise QA Agent")
     parser.add_argument("--question")
     parser.add_argument("--input", type=Path)
-    parser.add_argument("--candidate-limit", type=int, default=50)
-    parser.add_argument("--max-evidence", type=int, default=8)
+    parser.add_argument("--candidate-limit", type=int, default=CONFIG["retrieval"]["candidate_limit"])
+    parser.add_argument("--max-evidence", type=int, default=CONFIG["retrieval"]["max_evidence"])
+    parser.add_argument("--max-steps", type=int, default=CONFIG["runtime"].get("max_steps", 5))
     parser.add_argument("--llm", choices=("mock", "openai-compatible"), default=CONFIG["runtime"]["llm"])
     parser.add_argument("--reranker", choices=("mock", "provider"), default=CONFIG["runtime"]["reranker"])
     parser.add_argument("--query-aware", choices=("mock", "provider"), default=CONFIG["runtime"]["query_aware_mode"])
@@ -54,6 +55,7 @@ def main():
         chunks,
         candidate_limit=int(config.get("candidate_limit", CONFIG["retrieval"]["candidate_limit"])),
         max_evidence=int(config.get("max_evidence", CONFIG["retrieval"]["max_evidence"])),
+        max_steps=int(config.get("max_steps", args.max_steps)),
         reranker=reranker,
         llm=llm,
         extractor=extractor,

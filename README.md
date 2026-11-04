@@ -1,6 +1,6 @@
 # 企业知识问答 Agent（第三题）
 
-本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含 BM25 与语义向量混合召回、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
+本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含有界 ReAct 检索循环、BM25 与语义向量混合召回、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
 
 ## 环境与测试
 
@@ -38,6 +38,10 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 ```
 
 新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 仅重建 SQLite 文本索引，不代表 FAISS 向量索引刷新。SQLite 与向量文件属于本地运行状态，不应提交。
+
+## ReAct 检索循环
+
+每轮由模型根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。`search` 会执行混合召回、重排和 query-aware 证据抽取；无证据时可以改写查询并再次搜索。循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。达到上限会停止并返回证据不足；冲突或多版本证据始终请求用户确认。
 
 ## Query-Aware Evidence Extraction
 
