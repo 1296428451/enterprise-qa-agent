@@ -1,0 +1,23 @@
+[
+  {
+    "case_id": "react-01",
+    "question": "今年奥运会中国有没有举行？",
+    "expected_status": "insufficient_evidence",
+    "expected_documents": [],
+    "expected_behavior": "first search may use the original query, then rewrite to a domestic Olympics query; no evidence should lead to bounded abstention"
+  },
+  {
+    "case_id": "react-02",
+    "question": "公司是否提供住房补贴？",
+    "expected_status": "insufficient_evidence",
+    "expected_documents": [],
+    "expected_behavior": "rewrite and retry at most five steps, then abstain without inventing a policy"
+  },
+  {
+    "case_id": "react-03",
+    "question": "差旅报销需要什么材料？",
+    "expected_status": "completed",
+    "expected_documents": ["D03"],
+    "expected_behavior": "one search is sufficient and answer must cite D03"
+  }
+]
