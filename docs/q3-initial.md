@@ -22,7 +22,7 @@ python src/q3/cli.py --input examples/requests/q3_conflict.json
 python src/q3/evaluate.py --cases data/q3_eval_cases.json --db data/knowledge.db --output data/q3_eval_report.json
 ```
 
-10 条专项样本覆盖明确答案、同义改写、冲突和资料外问题。最近一次确认结果为 `status_accuracy=1.00`、`document_recall_rate=1.00`。该小规模合成评测只验证项目设定场景，不代表外部知识库泛化能力。
+最近一次 10 条专项评测结果：`status_accuracy=1.00`、`query_retrieval_accuracy=0.90`、`document_precision_macro=0.9667`、`document_recall_macro=1.00`、`document_f1_macro=0.9800`、`answer_exact_match_accuracy=1.00`（5 条可回答问题）、`correct_abstention_accuracy=1.00`（5 条冲突/不可回答问题）。逐题报告在 `data/q3_eval_report.json`。
 
 ## FRAMES title-only gold-link proxy
 

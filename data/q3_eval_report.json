@@ -1,7 +1,14 @@
 {
   "total": 10,
   "status_accuracy": 1.0,
-  "document_recall_rate": 1.0,
+  "query_retrieval_accuracy": 0.9,
+  "document_precision_macro": 0.9666666666666666,
+  "document_recall_macro": 1.0,
+  "document_f1_macro": 0.9800000000000001,
+  "answer_exact_match_accuracy": 1.0,
+  "answerable_cases": 5,
+  "correct_abstention_accuracy": 1.0,
+  "non_answerable_cases": 5,
   "cases": [
     {
       "case_id": "q3-01",
@@ -17,19 +24,29 @@
         "D01",
         "D02"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": null,
+      "actual_answer": null,
+      "answer_exact_match": null,
+      "correct_abstention": true,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "普通费用报销期限多久？"
+          "result": "queries planned",
+          "queries": [
+            "普通费用报销期限多久？"
+          ],
+          "intent": "普通费用报销期限多久？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "2 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "2 ranked candidates"
         },
         {
@@ -54,19 +71,29 @@
       "actual_documents": [
         "D03"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": "差旅报销需要提交发票、行程单和审批记录。",
+      "actual_answer": "差旅报销需要提交发票、行程单和审批记录。",
+      "answer_exact_match": true,
+      "correct_abstention": null,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "差旅报销需要什么材料？"
+          "result": "queries planned",
+          "queries": [
+            "差旅报销需要什么材料？"
+          ],
+          "intent": "差旅报销需要什么材料？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "1 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "1 ranked candidates"
         },
         {
@@ -91,19 +118,29 @@
       "actual_documents": [
         "D04"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": "员工可以在系统中查看自己的审批进度。",
+      "actual_answer": "员工可以在系统中查看自己的审批进度。",
+      "answer_exact_match": true,
+      "correct_abstention": null,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "审批进度在哪里查看？"
+          "result": "queries planned",
+          "queries": [
+            "审批进度在哪里查看？"
+          ],
+          "intent": "审批进度在哪里查看？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "1 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "1 ranked candidates"
         },
         {
@@ -124,19 +161,29 @@
       "status_match": true,
       "expected_documents": [],
       "actual_documents": [],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": null,
+      "actual_answer": null,
+      "answer_exact_match": null,
+      "correct_abstention": true,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "公司是否提供住房补贴？"
+          "result": "queries planned",
+          "queries": [
+            "公司是否提供住房补贴？"
+          ],
+          "intent": "公司是否提供住房补贴？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "0 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "0 ranked candidates"
         },
         {
@@ -160,19 +207,29 @@
         "D02",
         "D03"
       ],
-      "document_recall": true,
+      "document_precision": 0.6666666666666666,
+      "document_recall": 1.0,
+      "document_f1": 0.8,
+      "documents_exact_match": false,
+      "expected_answer": null,
+      "actual_answer": null,
+      "answer_exact_match": null,
+      "correct_abstention": true,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "报销最晚什么时候提交？"
+          "result": "queries planned",
+          "queries": [
+            "报销最晚什么时候提交？"
+          ],
+          "intent": "报销最晚什么时候提交？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "3 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "3 ranked candidates"
         },
         {
@@ -197,19 +254,29 @@
       "actual_documents": [
         "D03"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": "差旅报销需要提交发票、行程单和审批记录。",
+      "actual_answer": "差旅报销需要提交发票、行程单和审批记录。",
+      "answer_exact_match": true,
+      "correct_abstention": null,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "出差报销要准备哪些材料？"
+          "result": "queries planned",
+          "queries": [
+            "出差报销要准备哪些材料？"
+          ],
+          "intent": "出差报销要准备哪些材料？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "1 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "1 ranked candidates"
         },
         {
@@ -234,19 +301,29 @@
       "actual_documents": [
         "D04"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": "员工可以在系统中查看自己的审批进度。",
+      "actual_answer": "员工可以在系统中查看自己的审批进度。",
+      "answer_exact_match": true,
+      "correct_abstention": null,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "我想查看自己的审批流程进度"
+          "result": "queries planned",
+          "queries": [
+            "我想查看自己的审批流程进度"
+          ],
+          "intent": "我想查看自己的审批流程进度"
         },
         {
           "action": "hybrid_retrieve",
           "result": "1 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "1 ranked candidates"
         },
         {
@@ -273,19 +350,29 @@
         "D01",
         "D02"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": null,
+      "actual_answer": null,
+      "answer_exact_match": null,
+      "correct_abstention": true,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "普通费用报销是否有提交时限？"
+          "result": "queries planned",
+          "queries": [
+            "普通费用报销是否有提交时限？"
+          ],
+          "intent": "普通费用报销是否有提交时限？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "3 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "3 ranked candidates"
         },
         {
@@ -306,19 +393,29 @@
       "status_match": true,
       "expected_documents": [],
       "actual_documents": [],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": null,
+      "actual_answer": null,
+      "answer_exact_match": null,
+      "correct_abstention": true,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "员工福利积分如何兑换？"
+          "result": "queries planned",
+          "queries": [
+            "员工福利积分如何兑换？"
+          ],
+          "intent": "员工福利积分如何兑换？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "0 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "0 ranked candidates"
         },
         {
@@ -339,19 +436,29 @@
       "actual_documents": [
         "D03"
       ],
-      "document_recall": true,
+      "document_precision": 1.0,
+      "document_recall": 1.0,
+      "document_f1": 1.0,
+      "documents_exact_match": true,
+      "expected_answer": "差旅报销需要提交发票、行程单和审批记录。",
+      "actual_answer": "差旅报销需要提交发票、行程单和审批记录。",
+      "answer_exact_match": true,
+      "correct_abstention": null,
       "trace": [
         {
           "action": "plan_queries",
-          "result": "deterministic query plan",
-          "query": "发票和行程单是否是差旅报销材料？"
+          "result": "queries planned",
+          "queries": [
+            "发票和行程单是否是差旅报销材料？"
+          ],
+          "intent": "发票和行程单是否是差旅报销材料？"
         },
         {
           "action": "hybrid_retrieve",
           "result": "1 candidates"
         },
         {
-          "action": "jev_rerank",
+          "action": "rerank",
           "result": "1 ranked candidates"
         },
         {

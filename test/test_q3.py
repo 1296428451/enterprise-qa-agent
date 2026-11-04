@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.q3.agent import EnterpriseQA, load_chunks
 from src.q3.database import create_database
+from src.q3.evaluate import evaluate as evaluate_q3
 from src.q3.llm import MockLLM, OpenAICompatibleLLM
 from src.q3.models import ScoredChunk
 from src.q3.provider_reranker import ProviderReranker
@@ -92,10 +93,6 @@ class EnterpriseQATests(unittest.TestCase):
         reranker = ProviderReranker("https://example.invalid/v1", "test-model", "test-key")
         self.assertEqual(reranker.base_url, "https://example.invalid/v1/rerank")
 
-    def test_provider_reranker_builds_v1_endpoint(self):
-        reranker = ProviderReranker("https://example.invalid/v1", "test-model", "test-key")
-        self.assertEqual(reranker.base_url, "https://example.invalid/v1/rerank")
-
     def test_openai_verifier_can_veto_answer_and_preserve_claims(self):
         class VetoLLM(MockLLM):
             def verify(self, question, answer, citations):
@@ -120,6 +117,21 @@ class EnterpriseQATests(unittest.TestCase):
         result = EnterpriseQA(self.chunks, llm=MultiQueryLLM()).answer("需要发票吗？")
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.citations[0]["document_id"], "D03")
+
+    def test_evaluation_reports_retrieval_answer_and_abstention_metrics(self):
+        report = evaluate_q3(
+            Path(__file__).resolve().parents[1] / "data" / "q3_eval_cases.json",
+            Path(__file__).resolve().parents[1] / "data" / "knowledge.db",
+        )
+        self.assertEqual(report["total"], 10)
+        self.assertEqual(report["query_retrieval_accuracy"], 0.9)
+        self.assertEqual(report["answer_exact_match_accuracy"], 1.0)
+        self.assertEqual(report["answerable_cases"], 5)
+        self.assertEqual(report["correct_abstention_accuracy"], 1.0)
+        self.assertEqual(report["non_answerable_cases"], 5)
+        housing = next(case for case in report["cases"] if case["case_id"] == "q3-04")
+        self.assertEqual(housing["document_precision"], 1.0)
+        self.assertEqual(housing["document_recall"], 1.0)
 
     def test_conflicting_policies_are_not_flattened(self):
         result = EnterpriseQA(self.chunks).answer("普通费用报销期限多久？")
