@@ -1,3 +1,4 @@
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -14,9 +15,9 @@ class EmbeddingTests(unittest.TestCase):
             import transformers
         except ModuleNotFoundError:
             self.skipTest("py312 embedding dependencies are not active")
-        model_path = Path(r"E:/Users/ASUS/PycharmProjects/pythonProject1/MyServer/models/AI-ModelScope/all-MiniLM-L6-v2")
-        if not model_path.exists():
-            self.skipTest("local embedding model is not available")
+        model_path = Path(os.environ.get("FRAMES_EMBEDDING_MODEL", ""))
+        if not model_path.is_dir():
+            self.skipTest("set FRAMES_EMBEDDING_MODEL to a local embedding model directory")
         embedder = LocalEmbedder(model_path)
         vectors = embedder.encode(["报销期限多久？", "差旅报销需要什么材料？"])
         self.assertEqual(vectors.shape[0], 2)

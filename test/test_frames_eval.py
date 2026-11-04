@@ -13,6 +13,7 @@ class FramesEvaluationTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(canonicalize("en.wikipedia.org/wiki/Grazia_Deledda")[2], "missing_scheme")
         self.assertEqual(canonicalize("https://en.wikipedia.org/w/index.php?search=x&title=Special:Search")[2], "special_search")
+        self.assertEqual(canonicalize("https://notwikipedia.org/wiki/A")[2], "non_wikipedia_host")
 
     def test_metrics_include_micro_macro_and_all_gold(self):
         result = retrieval_metrics([["a", "x", "b"], ["x", "y"]], [{"a", "b"}, {"z"}])

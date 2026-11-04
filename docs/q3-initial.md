@@ -1,68 +1,49 @@
-# 第三题初步实现说明
+# 第三题评测与当前状态
 
 当前分支：`question-3-enterprise-rag`。
 
-## 当前可运行能力
+## 企业问答 CLI
 
 ```bash
+python -m unittest discover -s test -v
 python src/q3/cli.py --question "差旅报销需要什么材料？"
 python src/q3/cli.py --input examples/requests/q3_conflict.json
 ```
 
-也支持 JSON 标准输入。当前版本使用本地合成制度数据、BM25 与轻量语义 Mock、可替换的 Jev reranker 接口和结构化 trace。明确答案会返回引用；D01/D02 冲突会请求用户确认；资料外问题会返回 `insufficient_evidence`。
+系统使用本地合成制度数据、BM25 与语义召回、可替换的 reranker adapter 和结构化 trace。默认模型适配为离线 Mock；明确答案返回引用，制度版本冲突时保留引用并请求用户确认，资料外问题返回 `insufficient_evidence`。
 
-## 真实模型状态
+## 模型状态
 
-本地已接入 `all-MiniLM-L6-v2` embedding，并成功生成 384 维归一化向量及 FAISS 索引。Jev 权重未在给定模型目录中发现，因此不声称使用真实 Jev。
+本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。Reranker 可通过 provider adapter 配置，但默认不发网络请求；小于 1B 的本地 reranker 权重未成功下载并启用。真实 LLM planner/verifier 也尚未接入，因此目前不声称真实模型的规划或答案核验质量。
 
-## Reranker model status
-
-The preferred open reranker is `Qwen/Qwen3-Reranker-0.6B`; alternatives are `mixedbread-ai/mxbai-rerank-base-v2` and `BAAI/bge-reranker-v2-m3`. All are below 1B parameters and suitable for local pairwise relevance scoring. The current Hugging Face mirror/proxy attempt returned HTTP 502 and left only incomplete download files, so none is enabled yet. The project keeps the tested Jev-compatible adapter and Mock fallback rather than claiming a partial model is usable.
-
-The provider configuration supplied outside the repository identifies `Qwen/Qwen3-Reranker-0.6B` at an OpenAI-style `/v1/rerank` endpoint. `src/q3/provider_reranker.py` implements the compatible request adapter, but no key is stored in the repository and no external request is made by default. Enable it explicitly with `RERANK_BASE_URL`, `RERANK_MODEL`, and `RERANK_API_KEY` in the shell.
-
-## Local semantic index and database
-
-Build both persisted artifacts from the repository root after the test gate:
-
-```bash
-python -m unittest discover -s test -v
-python src/q3/build_index.py --model "E:/Users/ASUS/PycharmProjects/pythonProject1/MyServer/models/AI-ModelScope/all-MiniLM-L6-v2"
-python src/q3/build_database.py
-```
-
-The SQLite database contains four synthetic documents and four chunks. Runtime state remains ignored.
-
-## 评测结果（10 cases）
-
-从仓库根目录运行：
+## 合成问答专项评测
 
 ```bash
 python src/q3/evaluate.py --cases data/q3_eval_cases.json --db data/knowledge.db --output data/q3_eval_report.json
 ```
 
-当前检索门槛要求多词查询至少命中两个不同非停用词，并对语义 Mock 结果设置最低重叠度，以避免“员工福利积分如何兑换？”因共享“员工”单字误召回。最新结果：
+10 条专项样本覆盖明确答案、同义改写、冲突和资料外问题。最近一次确认结果为 `status_accuracy=1.00`、`document_recall_rate=1.00`。该小规模合成评测只验证项目设定场景，不代表外部知识库泛化能力。
 
-- `status_accuracy`: **1.00**
-- `document_recall_rate`: **1.00**
-- 全量 unittest：21 passed、1 skipped（本地 embedding 依赖未启用）
+## FRAMES title-only gold-link proxy
 
+官方 test split 包含 824 个问题、2,636 个 gold-link occurrences、2,507 个去重原始 gold URL 和 2,507 个候选列原始 URL。规范化后有 2,475 个候选文章 ID；4 个唯一 URL 因缺 scheme、非 Wikipedia host 或 `Special:Search` 被排除。数据及本地 hash 见 `data/external/frames_manifest.json`。
 
-**限制：**Wikipedia 文章正文因代理 TLS 过期无法取得，本评测因此采用 title-only gold-link proxy：从每题 `wiki_links` 汇总原始 URL，得到 2,507 个候选 ID，并以 URL 中的 Wikipedia 标题作为候选文本。指标仅衡量题目与 gold 标题的匹配，**不是 full-text RAG**，不应与论文正文检索结果直接比较。来源、Apache-2.0 数据集许可、文件字节数、824 行及 SHA256 见 `data/external/frames_manifest.json`。
+运行完整 BM25、Dense 与 RRF 代理评测：
 
-复现命令（从仓库根目录执行；dense 需要本地 `py312` embedding 环境）：
-
-```bash
+```powershell
+$env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"
 python -m unittest discover -s test -v
-python src/q3/evaluate_frames.py --data data/external/frames_test.tsv --model "<local all-MiniLM-L6-v2 path>" --output data/external/frames_eval_report.json
+python src/q3/evaluate_frames.py --method rrf --model $env:FRAMES_EMBEDDING_MODEL --output data/external/frames_eval_report.json
 ```
 
-评测输出 BM25、all-MiniLM-L6-v2 dense cosine，以及 RRF（k=60）的 Recall@5/10、MRR@10、nDCG@10 与样本数。当前实测（824 queries）：
+下表给出 question-macro Recall@5、link-micro Recall@5、MRR@10 与 nDCG@10：
 
-| Method | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
+| Method | Macro R@5 | Link R@5 | MRR@10 | nDCG@10 |
 |---|---:|---:|---:|---:|
-| BM25 title-only | 0.3592 | 0.3900 | 0.6135 | 0.4055 |
-| all-MiniLM-L6-v2 title-only | 0.5291 | 0.5915 | 0.8274 | 0.5949 |
-| RRF BM25+dense title-only | 0.5197 | 0.5793 | 0.8043 | 0.5750 |
+| BM25 title-only | 0.3601 | 0.3063 | 0.6175 | 0.4095 |
+| all-MiniLM-L6-v2 title-only | 0.5321 | 0.4732 | 0.8328 | 0.5999 |
+| RRF BM25+dense title-only | 0.5248 | 0.4614 | 0.8107 | 0.5805 |
 
-详见机器可读报告 `data/external/frames_eval_report.json`。
+Dense 在这四项汇总指标上高于 RRF；不应仅因混合方案更复杂就默认选择 RRF。完整 Recall@1/5/10、all-gold-hit@k、reasoning-type 分层和逐题明细见机器可读报告。
+
+**解释边界：**候选文本只有 Wikipedia 标题，无法取得文章正文是因为代理 TLS 验证失败。该 proxy 只评估标题匹配和 gold-link 排序；它不是全文证据检索、答案准确率、引用支持或端到端多跳 RAG 评测。候选集来自 test split 本身，也不构成独立开放语料检索基准。
