@@ -247,7 +247,14 @@ class OpenAICompatibleLLM:
         if result.get("action") not in {"answer", "ask_user"}:
             raise ValueError("LLM verifier action must be answer or ask_user")
         if result["verified"] and (claims or result["action"] != "answer"):
-            raise ValueError("LLM verifier returned contradictory approval fields")
+            # Models sometimes approve while still listing gaps or asking the
+            # user. Treat that as "not verified" instead of aborting the run:
+            # the safe outcome is abstention, not a traceback in the CLI.
+            result["verified"] = False
+            result["unsupported_claims"] = claims or [
+                "verifier approved the answer while also requesting confirmation"
+            ]
+            result["action"] = "ask_user"
         return result
 
     async def averify(self, question: str, answer: str | None, citations: list[dict]) -> dict:

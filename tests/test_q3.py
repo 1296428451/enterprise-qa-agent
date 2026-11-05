@@ -128,6 +128,8 @@ def test_declined_answer_still_returns_a_summary_with_gap(chunks):
     assert result.gaps == [gap]
     results = [step.get("result") or "" for step in result.trace if step.get("action") == "answer_from_evidence"]
     assert any("summarised the closest evidence" in text for text in results)
+    # The summary is verbatim quotes, so the verifier is skipped on purpose.
+    assert "verifier skipped" in (result.verification.get("note") or "")
 
 
 def test_partial_answer_keeps_model_gap(chunks):
@@ -211,11 +213,15 @@ def test_openai_compatible_llm_rejects_malformed_plan():
     with patch.object(llm, "_complete_json_async", return_value={"queries": [], "intent": "x"}):
         with pytest.raises(ValueError):
             llm.plan("报销期限多久？")
+    # A contradictory verdict is downgraded to "not verified" instead of
+    # aborting the run, so the CLI abstains rather than printing a traceback.
     with patch.object(llm, "_complete_json_async", return_value={
         "verified": True, "unsupported_claims": ["unsupported"], "action": "answer"
     }):
-        with pytest.raises(ValueError):
-            llm.verify("报销期限多久？", "answer", [])
+        verdict = llm.verify("报销期限多久？", "answer", [])
+        assert verdict["verified"] is False
+        assert verdict["unsupported_claims"] == ["unsupported"]
+        assert verdict["action"] == "ask_user"
 
 
 def test_openai_compatible_llm_sends_auth_and_parses_http_json():

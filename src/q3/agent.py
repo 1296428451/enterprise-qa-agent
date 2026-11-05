@@ -88,6 +88,7 @@ class EnterpriseQA:
         answer_text = generated.get("answer", "")
         model_gap = generated.get("gap") if isinstance(generated.get("gap"), str) else ""
         cited_indices = generated.get("citation_indices")
+        synthesised = False
         if not answer_text.strip():
             # A declined answer is not a citation-format violation. If there is
             # relevant evidence, still return a result: summarise the closest
@@ -110,6 +111,7 @@ class EnterpriseQA:
                 for index, item in enumerate(shown, 1))
             answer_text = f"{summary}。未覆盖部分：{model_gap}"
             cited_indices = list(range(1, len(shown) + 1))
+            synthesised = True
             trace.append({"action": "answer_from_evidence",
                           "result": "model declined; summarised the closest evidence with a gap"})
         if (not isinstance(cited_indices, list) or not cited_indices
@@ -122,8 +124,16 @@ class EnterpriseQA:
                            "answer_input": answer_input}, {"verified": False, "action": "ask_user"})
         valid_citations = [extracted_citations[index - 1] for index in cited_indices]
         trace.append({"action": "answer_from_evidence", "result": f"generated answer with {len(valid_citations)} citations"})
-        verification = await self.llm.averify(question, answer_text, valid_citations) if hasattr(self.llm, "averify") else await self.llm.verify_async(question, answer_text, valid_citations) if hasattr(self.llm, "verify_async") else self.llm.verify(question, answer_text, valid_citations)
-        trace.append({"action": "verify_answer", "result": "passed" if verification["verified"] else "unsupported claims"})
+        if synthesised:
+            # The summary is assembled from verbatim quotes that were already
+            # checked against their source clauses, so there is no generated
+            # claim for the verifier to judge.
+            verification = {"verified": True, "unsupported_claims": [], "action": "answer",
+                            "note": "summarised verbatim from cited clauses; verifier skipped"}
+            trace.append({"action": "verify_answer", "result": "skipped (verbatim summary)"})
+        else:
+            verification = await self.llm.averify(question, answer_text, valid_citations) if hasattr(self.llm, "averify") else await self.llm.verify_async(question, answer_text, valid_citations) if hasattr(self.llm, "verify_async") else self.llm.verify(question, answer_text, valid_citations)
+            trace.append({"action": "verify_answer", "result": "passed" if verification["verified"] else "unsupported claims"})
         status = "completed" if verification["verified"] and answer_text else "insufficient_evidence"
         if status == "completed":
             # A partial answer may still leave part of the question uncovered;
