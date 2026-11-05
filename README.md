@@ -3,7 +3,7 @@
 本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含有界 ReAct 检索循环、BM25 与 mock token-overlap semantic signal 混合候选、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。默认 CLI 未创建或注入 FAISS semantic retriever；FAISS 是可选索引工具，不在 CLI 在线主链。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
 
 ## 环境与测试
-本项目在 Python 3.12（conda env `py312`）下完成全部验收；代码未使用 3.12 专属语法，理论上 3.10+ 均可运行，但只在 3.12 上逐一验证过。当前全量验收结果：68 passed，1 skipped（未配置本地 embedding 模型的 smoke test）。先安装依赖：
+本项目在 Python 3.12（conda env `py312`）下完成全部验收；代码未使用 3.12 专属语法，理论上 3.10+ 均可运行，但只在 3.12 上逐一验证过。当前全量验收结果：模型已下载时 75 passed；未下载时 74 passed、1 skipped（embedding 冒烟项自动跳过）。先安装依赖：
 
 ```bash
 python -m pip install -r requirements.txt
@@ -15,15 +15,16 @@ python -m pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
 
-Embedding 冒烟测试默认跳过；需要先装可选依赖（`requirements.txt` 中被注释的 `faiss-cpu`、`torch`、`transformers`、`sentencepiece`、`safetensors`），再设置本地模型目录：
+Embedding / FAISS 只用于可选索引与评测，主链不需要。要用时先装可选依赖，模型默认放在仓库内的相对目录 `models/all-MiniLM-L6-v2`，缺失时自动下载（权重不入库）：
 
 ```bash
 python -m pip install faiss-cpu torch transformers sentencepiece safetensors
-export FRAMES_EMBEDDING_MODEL=path/to/all-MiniLM-L6-v2
-pytest tests/test_embedding.py -v
+python -m src.q3.download_model     # 下载 sentence-transformers/all-MiniLM-L6-v2 到 models/
+python src/q3/build_index.py        # 不传 --model 时使用上面的默认目录
+pytest tests/test_embedding.py -v   # 模型缺失时该冒烟项自动 skip
 ```
 
-PowerShell 可用 `$env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"` 设置变量。
+`--model`（或环境变量 `FRAMES_EMBEDDING_MODEL`）可指向仓库内的其它相对路径或任意 Hugging Face model id；相对路径按仓库根解析，`--model models/my-model` 即 `<repo>/models/my-model`。已存在的目录一律以 `local_files_only=True` 加载。若直连 Hugging Face 不可用，设置镜像即可，例如 `HF_ENDPOINT=https://hf-mirror.com python -m src.q3.download_model`（`huggingface_hub` 的元数据接口被拦时，代码会退回按文件清单直连下载）；完全离线时把权重手工放到 `models/all-MiniLM-L6-v2` 即可。
 
 ## 问答与知识库管理
 
@@ -56,7 +57,7 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 真实 Provider smoke（py312 + 本地 `.env`，标准 TLS 校验）：`post_chat_stream` 成功收到 SSE 数据块、聚合 `delta.content` 并解析出 JSON 对象；`ProviderReranker.score_async` 成功对两个候选返回分数（约 `0.9992`、`0.0010`）；`QueryAwareExtractor.aextract`（quote 为候选原文精确子串）、`aanswer_from_evidence`、`averify` 均返回合规 JSON。证书链校验正常：默认 SSL context、OpenAI SDK、requests、urllib 均可成功调用，TLS verify 始终开启且禁止关闭。本次将 `src/q3/llm.py` 中 `decide_action_async` 的 instruction 收紧为"observations 为空必须 `action=search`、不得凭常识作答"后，真实 CLI 首步不再抛 `ValueError: the first ReAct action must be search`；`src/q3/agent.py` 的首步 search 硬检查保留作为兜底。
 
-真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`，运行记录见 `examples/{requests,traces,results}/live_*.json`）：`差旅报销需要什么材料？` 返回 `completed`（答案「差旅报销需提交发票、行程单和审批记录。[1]」，1 条引用 D03，`verify` 通过）；`报销期限多久？` 返回 `conflict_detected`（2 条引用 D01/D02）；`公司有住房补贴吗？` 连续改写检索至步数上限后返回 `insufficient_evidence`（0 条引用）。三条路径的可审计性：`live_react` 是模型在观察到已核验证据后由 `search` 调整为 `answer`（模型动作调整的清晰证据）；`live_missing` 中模型连续改写查询继续检索，到 `max_steps` 上限后由 `src/q3/agent.py` 强制返回 `insufficient_evidence`（代码在触顶时终止，不是模型选择该动作）；`live_conflict` 由冲突检测分支提前返回 `conflict_detected`（同样是代码终止，`ask_user` 出现在 `verification.action` 而非 ReAct 决策步骤）。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 未把已核验答案与证据原文回传决策模型，修复后只补齐该信息流，未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。真实模型输出有随机性，以上为单次实测记录，不声称在线答案准确率已系统评测。完整 pytest 为 68 passed、1 skipped。
+真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`，运行记录见 `examples/{requests,traces,results}/live_*.json`）：`差旅报销需要什么材料？` 返回 `completed`（答案「差旅报销需提交发票、行程单和审批记录。[1]」，1 条引用 D03，`verify` 通过）；`报销期限多久？` 返回 `conflict_detected`（2 条引用 D01/D02）；`公司有住房补贴吗？` 连续改写检索至步数上限后返回 `insufficient_evidence`（0 条引用）。三条路径的可审计性：`live_react` 是模型在观察到已核验证据后由 `search` 调整为 `answer`（模型动作调整的清晰证据）；`live_missing` 中模型连续改写查询继续检索，到 `max_steps` 上限后由 `src/q3/agent.py` 强制返回 `insufficient_evidence`（代码在触顶时终止，不是模型选择该动作）；`live_conflict` 由冲突检测分支提前返回 `conflict_detected`（同样是代码终止，`ask_user` 出现在 `verification.action` 而非 ReAct 决策步骤）。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 未把已核验答案与证据原文回传决策模型，修复后只补齐该信息流，未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。真实模型输出有随机性，以上为单次实测记录，不声称在线答案准确率已系统评测。完整 pytest 为 75 项。
 
 ```bash
 python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json
@@ -79,7 +80,7 @@ python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
 ```bash
 pytest tests/ -v
 python src/q3/evaluate_frames.py --method bm25
-python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
+python src/q3/evaluate_frames.py --method rrf --model models/all-MiniLM-L6-v2
 ```
 
 报告分别列出 BM25、Dense 和 RRF 的 link-micro/question-macro Recall@1/5/10、all-gold-hit、MRR@10、nDCG@10 及 reasoning-type 分层。分层是重叠多标签统计，不同类别样本数不可相加视为总样本数。
@@ -110,7 +111,7 @@ python src/q3/cli.py --question "差旅报销需要什么材料？" \
 
 三条路径体现模型依据不同工具观察调整动作；`traces/*.json` 的 `react_steps` 记录 step、action、query、tool_parameters、result_summary、next_action_reason，`pipeline_trace` 记录 plan/检索/rerank/抽取/答案/核验。
 
-示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 的历史代码仍以 `src/agent.py`、`src/api.py`、`src/cli.py`、`data/assets.json`、`data/rules.json`、`data/schedule.json`、`tests/test_agent.py`、`tests/test_persistence.py` 形式留在当前仓库树中，**不属于第三题验收主体**；`pytest` 收集 69 项，其中 10 项为上述第一题历史用例、59 项属第三题（第三题内 1 项 embedding 冒烟因未配置本地模型跳过），故显示 68 passed / 1 skipped。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
+示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 的历史代码仍以 `src/agent.py`、`src/api.py`、`src/cli.py`、`data/assets.json`、`data/rules.json`、`data/schedule.json`、`tests/test_agent.py`、`tests/test_persistence.py` 形式留在当前仓库树中，**不属于第三题验收主体**；`pytest` 收集 75 项，其中 10 项为上述第一题历史用例、65 项属第三题；第三题内 1 项 embedding 冒烟在模型未下载时自动跳过，故显示 74 passed / 1 skipped。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
 
 ## 凭证安全与提交前自检
 

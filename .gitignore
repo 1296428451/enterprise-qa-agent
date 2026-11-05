@@ -27,3 +27,7 @@ data/external/frames-benchmark/.cache/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Embedding weights are downloaded on demand; only the notes file is tracked.
+models/*
+!models/README.md

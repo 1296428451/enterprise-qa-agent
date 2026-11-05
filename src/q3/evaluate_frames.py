@@ -219,13 +219,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="FRAMES title-only gold-link proxy evaluation")
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--method", choices=("bm25", "dense", "rrf"), default="bm25")
-    parser.add_argument("--model", help="Local all-MiniLM-L6-v2 model path (or FRAMES_EMBEDDING_MODEL)")
+    parser.add_argument("--model", help="Embedding model path (repo-relative) or hub id; "
+                                        "defaults to models/all-MiniLM-L6-v2, auto-downloaded "
+                                        "on first use. FRAMES_EMBEDDING_MODEL is used if set.")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--output", type=Path, default=DEFAULT_REPORT)
     args = parser.parse_args(argv)
     model = args.model or os.environ.get("FRAMES_EMBEDDING_MODEL")
-    if args.method in {"dense", "rrf"} and not model:
-        parser.error("dense and rrf methods require --model or FRAMES_EMBEDDING_MODEL")
     report = evaluate(args.data, args.method, model, args.batch_size)
     text = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
     args.output.parent.mkdir(parents=True, exist_ok=True)

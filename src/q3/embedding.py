@@ -4,6 +4,112 @@ import json
 from pathlib import Path
 from typing import Iterable
 
+# Repository root and model location are derived from this file, never
+# hardcoded, so the checkout works from any directory or drive.
+ROOT = Path(__file__).resolve().parents[2]
+MODEL_DIR = ROOT / "models" / "all-MiniLM-L6-v2"
+MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
+# Only what AutoTokenizer/AutoModel need. The upstream repo also ships onnx/
+# and a duplicate .bin checkpoint (~500 MB together), which would be wasted.
+MODEL_PATTERNS = ("*.json", "*.txt", "*.safetensors", "1_Pooling/*")
+MODEL_FILES = (
+    "config.json",
+    "model.safetensors",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "vocab.txt",
+    "special_tokens_map.json",
+    "modules.json",
+    "1_Pooling/config.json",
+)
+
+
+def default_model_dir() -> Path:
+    return MODEL_DIR
+
+
+def model_endpoint() -> str:
+    """Hub endpoint used for downloads; honours HF_ENDPOINT for regional mirrors."""
+    import os
+    return (os.environ.get("HF_ENDPOINT") or "https://huggingface.co").rstrip("/")
+
+
+def _download_files_directly(target: Path, model_id: str, endpoint: str) -> list[str]:
+    """Fetch the required files over plain HTTP.
+
+    ``huggingface_hub`` is the normal path, but it also queries the Hub API for
+    metadata, which some restricted networks block while plain file downloads
+    still work. This keeps the model fetch usable behind a mirror.
+    """
+    import httpx
+    written: list[str] = []
+    with httpx.Client(follow_redirects=True, timeout=httpx.Timeout(30.0, read=120.0)) as client:
+        for name in MODEL_FILES:
+            destination = target / name
+            if destination.is_file() and destination.stat().st_size > 0:
+                written.append(name)
+                continue
+            url = f"{endpoint}/{model_id}/resolve/main/{name}"
+            response = client.get(url)
+            if response.status_code != 200 or not response.content:
+                raise RuntimeError(
+                    f"failed to download {name} from the model endpoint "
+                    f"(HTTP {response.status_code}); set HF_ENDPOINT to a reachable "
+                    f"mirror or place the model under models/all-MiniLM-L6-v2"
+                )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(response.content)
+            written.append(name)
+    return written
+
+
+def download_model(destination: str | Path | None = None, model_id: str = MODEL_ID) -> Path:
+    """Download the embedding model into a repo-relative directory."""
+    target = Path(destination) if destination is not None else MODEL_DIR
+    if not target.is_absolute():
+        target = ROOT / target
+    target.mkdir(parents=True, exist_ok=True)
+    try:
+        from huggingface_hub import snapshot_download
+    except ModuleNotFoundError:
+        _download_files_directly(target, model_id, model_endpoint())
+        return target
+    try:
+        snapshot_download(repo_id=model_id, local_dir=str(target),
+                          allow_patterns=list(MODEL_PATTERNS))
+    except Exception:
+        # Hub API metadata can be blocked while file downloads still work.
+        _download_files_directly(target, model_id, model_endpoint())
+    return target
+
+
+def ensure_model(model_path: str | Path | None = None, allow_download: bool = True) -> tuple[str, bool]:
+    """Resolve the embedding model source and whether it must be local-only.
+
+    * ``model_path=None`` uses ``models/all-MiniLM-L6-v2`` inside the repository
+      and downloads it there on first use.
+    * A relative ``model_path`` is resolved against the repository root.
+    * An existing directory is always loaded with ``local_files_only=True``.
+    * A value that is not an existing directory is treated as a Hugging Face
+      model id and left to ``transformers`` to fetch into its own cache.
+    """
+    if model_path is None:
+        if MODEL_DIR.is_dir() and any(MODEL_DIR.iterdir()):
+            return str(MODEL_DIR), True
+        if not allow_download:
+            raise FileNotFoundError(
+                f"embedding model not found at models/all-MiniLM-L6-v2; "
+                f"run `python -m src.q3.download_model` or set --model"
+            )
+        return str(download_model()), True
+
+    candidate = Path(model_path)
+    if not candidate.is_absolute():
+        candidate = ROOT / candidate
+    if candidate.is_dir():
+        return str(candidate), True
+    return str(model_path), False
+
 
 def dump_chunk_ids(metadata_path: str | Path, chunk_ids: list[str]) -> None:
     """Write the vector metadata sidecar as real JSON."""
@@ -41,14 +147,16 @@ def load_chunk_ids(metadata_path: str | Path) -> list[str]:
 
 
 class LocalEmbedder:
-    def __init__(self, model_path: str | Path, device: str = "cpu"):
+    def __init__(self, model_path: str | Path | None = None, device: str = "cpu",
+                 allow_download: bool = True):
         import torch
         from transformers import AutoModel, AutoTokenizer
-        self.model_path = str(model_path)
+        source, local_only = ensure_model(model_path, allow_download=allow_download)
+        self.model_path = source
         self.torch = torch
         self.device = torch.device(device)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, local_files_only=True)
-        self.model = AutoModel.from_pretrained(self.model_path, local_files_only=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(source, local_files_only=local_only)
+        self.model = AutoModel.from_pretrained(source, local_files_only=local_only)
         self.model.to(self.device)
         self.model.eval()
 

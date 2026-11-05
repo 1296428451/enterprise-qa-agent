@@ -57,9 +57,9 @@ python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/
 运行完整 BM25、Dense 与 RRF 代理评测：
 
 ```powershell
-$env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"
+python -m src.q3.download_model   # 权重落到仓库相对目录 models/all-MiniLM-L6-v2
 python -m pytest tests/ -v
-python src/q3/evaluate_frames.py --method rrf --model $env:FRAMES_EMBEDDING_MODEL --output data/external/frames_eval_report.json
+python src/q3/evaluate_frames.py --method rrf --model models/all-MiniLM-L6-v2 --output data/external/frames_eval_report.json
 ```
 
 下表给出 question-macro Recall@5、link-micro Recall@5、MRR@10 与 nDCG@10：
