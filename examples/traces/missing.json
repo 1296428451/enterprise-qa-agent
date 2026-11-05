@@ -1,15 +1,13 @@
 {
-  "scenario": "asset title missing",
-  "request": {
-    "request_id": "missing-trace-001",
-    "asset_ids": ["M03"],
-    "constraints": {"publish_at": "2026-11-06T18:00:00+08:00"},
-    "alternative_slots": []
-  },
-  "expected_from_current_tool_data": {
-    "review_status": "risk",
-    "risk_reasons": ["缺少素材标题"],
-    "draft_saved": false
-  },
-  "note": "Scenario definition; run the CLI to produce fresh actual output and trace."
+  "scenario": "题库外问题，检索无证据后改写并拒答",
+  "provider_mode": "mocked provider protocol / 非在线真实模型",
+  "request_file": "examples/requests/missing.json",
+  "command": "python src/q3/cli.py --input examples/requests/missing.json",
+  "output": {"status": "insufficient_evidence", "answer": null, "citations": [], "gaps": ["没有检索到相关资料"]},
+  "trace": [
+    {"step": 1, "action": "search", "query": "公司是否提供住房补贴？", "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "insufficient_evidence", "next_action_reason": "开始检索"},
+    {"step": 2, "action": "search", "query": "公司是否提供住房补贴？ 相关制度", "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "insufficient_evidence", "next_action_reason": "首次检索无证据，改写查询"},
+    {"step": 3, "action": "insufficient_evidence", "query": null, "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "insufficient_evidence", "next_action_reason": "改写查询后仍无证据"}
+  ],
+  "note": "固定离线 mock 行为的协议示例；与 normal trace 的观察不同，下一动作从 answer 变为 query rewrite，最终拒答。非在线真实模型输出或决策。"
 }

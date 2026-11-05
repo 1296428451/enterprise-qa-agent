@@ -1,0 +1,12 @@
+{
+  "scenario": "真实 LLM provider 调用被 TLS 证书错误阻断",
+  "provider_mode": "provider failure / 非成功调用",
+  "request_file": "examples/requests/provider_failure.json",
+  "command_template": "python src/q3/cli.py --input examples/requests/provider_failure.json --llm openai-compatible",
+  "credential_handling": "OPENAI_API_KEY 仅从环境变量读取；样例不包含真实凭证。OPENAI_BASE_URL 以 ${OPENAI_BASE_URL} 占位。",
+  "observed_failure": "urllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired>",
+  "agent_trace": [],
+  "trace": [],
+  "trace_schema_example": {"step": 1, "action": "search", "query": "差旅报销需要什么材料？", "tool_parameters": {"endpoint": "${OPENAI_BASE_URL}", "model": "${OPENAI_MODEL}"}, "result_summary": "provider_error: TLS certificate expired", "next_action_reason": "provider 请求失败，停止；不降级为 Mock"},
+  "note": "失败发生在首个 ReAct action 决策前，因此没有 step/action/query/tool_parameters/result_summary/next_action_reason；异常发生于 provider 请求层，不属于工具调用 trace。此文件记录本次实际观察，不保证其他环境会复现同一 TLS 错误。"
+}

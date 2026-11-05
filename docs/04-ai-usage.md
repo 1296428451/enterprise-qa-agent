@@ -1,5 +1,19 @@
-# AI Usage
+# AI 使用与人工确认
 
-AI assistance was used to inspect the supplied exam statement, design the project structure, draft implementation and documentation, and identify acceptance cases. The implementation is reviewed against the source requirements and local tests are used as the acceptance gate. No real model API or secret is used. The offline planner is deterministic; it must not be presented as a real model-driven Agent evaluation.
+## 使用边界
+AI 辅助用于阅读题目与仓库、整理需求、拟定实现/测试方案、编写和修订代码及文档。交付验收以仓库代码、可复现示例和本地测试为准。在线 LLM provider 未成功完成调用；trace 中的 Mock 行为是确定性规则或 mocked provider protocol，不应表述为真实模型推理结果。
 
-Human contribution: supply the exam prompt and project constraints, review requirement fit, run/inspect tests and outputs, and decide final submission. Update this record if the actual division of work differs.
+## 个人信息待确认
+以下信息无法从仓库记录可靠推导，提交前请由实际提交者填写；不得用估算值替代：
+
+- 实际投入用时：`[待用户确认]`
+- 个人具体贡献及与协作者的分工：`[待用户确认]`
+- 是否使用/调用过其他 AI 工具及其实际用途（如有）：`[待用户确认]`
+
+填写前，本文件不声称具体工时、个人独立完成范围或未被记录的工具使用情况。
+
+## 已知未完成项
+- LLM provider TLS 证书过期，在线调用和真实模型决策未验收。
+- Reranker provider 响应缺少预期 `data` 数组，线上重排未验收。
+- 生产级认证、并发写入治理及真实企业知识数据接入不在本次范围。
+- FRAMES 数据评测只使用 title-only gold-link proxy；未取得 Wikipedia 正文，不能作为全文问答准确率证据。

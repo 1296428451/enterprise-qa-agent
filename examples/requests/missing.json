@@ -1,6 +1,5 @@
 {
-  "request_id": "demo-missing-001",
-  "asset_ids": ["M03"],
-  "constraints": {"publish_at": "2026-11-06T18:00:00+08:00"},
-  "alternative_slots": []
+  "question": "公司是否提供住房补贴？",
+  "conversation_history": [],
+  "config": {"candidate_limit": 200, "max_evidence": 8, "max_steps": 5}
 }

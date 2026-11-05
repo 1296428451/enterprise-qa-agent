@@ -3,12 +3,16 @@
 本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含有界 ReAct 检索循环、BM25 与语义向量混合召回、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
 
 ## 环境与测试
-
-Python 3.12 环境建议使用项目已配置的 `py312`：
+Python 3.12 环境建议使用项目已配置的 `py312`。先安装依赖：
 
 ```bash
-conda activate py312
-pytest test/ -v
+python -m pip install -r requirements.txt
+```
+
+运行全量验收：
+
+```bash
+python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/test -q
 ```
 
 Embedding 冒烟测试默认跳过；设置本地模型目录后可启用：
@@ -71,6 +75,12 @@ python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 
 报告分别列出 BM25、Dense 和 RRF 的 link-micro/question-macro Recall@1/5/10、all-gold-hit、MRR@10、nDCG@10 及 reasoning-type 分层。分层是重叠多标签统计，不同类别样本数不可相加视为总样本数。
 
-## 项目说明
+## 第三题示例与项目说明
 
-第一题素材排期 Agent 保留在仓库历史；当前分支的可运行主项目是第三题。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
+- 请求：`examples/requests/normal.json`、`examples/requests/missing.json`、`examples/requests/provider_failure.json`
+- 输出与 trace：`examples/traces/normal.json`、`examples/traces/missing.json`、`examples/traces/provider_failure.json`
+
+示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 仅保留在仓库历史；当前可运行主项目和验收材料均为第三题。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
+
+## 提交信息
+题号：第三题。GitHub 仓库地址与最终提交 SHA 属提交前最后更新字段，应在实际推送/提交前按最终仓库信息填写，文档不硬编码未来 SHA。当前本地 HEAD 仅代表编辑开始前基线，不作为最终提交 SHA。
