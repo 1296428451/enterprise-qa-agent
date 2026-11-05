@@ -165,7 +165,8 @@ class EnterpriseQA:
                 current_query = decision.query or current_query
                 result = await self._answer_once_async(current_query, history)
                 observation = {"query": current_query, "evidence_count": len(result.citations),
-                              "conflict": result.status in {"conflict_detected", "version_conflict"}, "status": result.status}
+                              "conflict": result.status in {"conflict_detected", "version_conflict"},
+                              "status": result.status, "completeness": result.completeness}
                 # Give the decision model the verified evidence it just produced.
                 # Without this, decide_action only sees a status flag and rejects
                 # for lack of visible evidence even when the answer passed verify.
@@ -195,7 +196,7 @@ class EnterpriseQA:
                 if decision.action == "ask_user":
                     result.verification["action"] = "ask_user"
                 if decision.action in {"insufficient_evidence", "stop"} and result.status == "completed":
-                    result.status, result.answer = "insufficient_evidence", None
+                    result.decline(decision.reason or "决策模型判定拒绝回答，未给出理由")
                 return result
             if decision.action == "answer" and result is not None:
                 result.trace = trace + result.trace
@@ -206,8 +207,10 @@ class EnterpriseQA:
                           {"candidate_count": 0, "selected_count": 0}, {"verified": False, "action": "ask_user"})
         result.trace = trace + result.trace
         if result.status == "completed":
-            result.status, result.answer = "insufficient_evidence", None
-        result.gaps = result.gaps or ["达到最大推理步数"]
+            result.decline("达到最大推理步数仍未完成回答")
+        else:
+            result.gaps = result.gaps or ["达到最大推理步数"]
+            result.refresh_completeness()
         result.verification["action"] = "ask_user"
         return result
 

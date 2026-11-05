@@ -4,6 +4,7 @@
   "command": "python src/q3/cli.py --question \"差旅报销需要什么材料？\" --llm openai-compatible --reranker provider --query-aware provider --max-steps 5 --save-run live_react",
   "question": "差旅报销需要什么材料？",
   "status": "completed",
+  "completeness": "complete",
   "answer": "差旅报销需提交发票、行程单和审批记录。[1]",
   "citations": [
     {

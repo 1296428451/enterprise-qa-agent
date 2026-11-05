@@ -4,6 +4,7 @@
   "command": "python src/q3/cli.py --question \"公司有住房补贴吗？\" --llm openai-compatible --reranker provider --query-aware provider --max-steps 5 --save-run live_missing",
   "question": "公司有住房补贴吗？",
   "status": "insufficient_evidence",
+  "completeness": "none",
   "answer": null,
   "citations": [],
   "gaps": [

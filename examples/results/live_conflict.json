@@ -4,6 +4,7 @@
   "command": "python src/q3/cli.py --question \"报销期限多久？\" --llm openai-compatible --reranker provider --query-aware provider --max-steps 5 --save-run live_conflict",
   "question": "报销期限多久？",
   "status": "conflict_detected",
+  "completeness": "none",
   "answer": null,
   "citations": [
     {

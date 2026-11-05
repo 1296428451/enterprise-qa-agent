@@ -13,7 +13,7 @@ from src.q3.agent import EnterpriseQA, load_chunks
 from src.q3.database import create_database
 from src.q3.evaluate import evaluate as evaluate_q3
 from src.q3.llm import MockLLM, OpenAICompatibleLLM
-from src.q3.models import ScoredChunk
+from src.q3.models import Answer, ScoredChunk
 from src.q3.provider_reranker import ProviderReranker
 
 
@@ -141,6 +141,68 @@ def test_partial_answer_keeps_model_gap(chunks):
     assert result.status == "completed"
     assert result.answer and "15 天" in result.answer
     assert result.gaps == [gap]
+
+
+def test_completeness_field_separates_complete_partial_and_missing(chunks):
+    """``status`` only says an answer exists; ``completeness`` says how much it covers."""
+    full = EnterpriseQA(chunks).answer("差旅报销需要什么材料？")
+    assert (full.status, full.completeness) == ("completed", "complete")
+    assert full.answer_complete is True and full.gaps == []
+
+    gap = "审核时长和付款时长未提供"
+    partial_llm = _ScriptedAnswerLLM({"answer": "研发部门需在费用发生后 15 天内提交。",
+                                      "citation_indices": [1], "conflict": False, "gap": gap})
+    partial = EnterpriseQA(chunks, llm=partial_llm,
+                           reranker=_both_clause_reranker(chunks)).answer(
+        "研发部门有财务要报销，需要多长时间才可以？")
+    assert (partial.status, partial.completeness) == ("completed", "partial")
+    assert partial.answer_complete is False and partial.gaps == [gap]
+
+    # A summary synthesised from the closest clauses never covers everything.
+    declined_llm = _ScriptedAnswerLLM({"answer": "", "citation_indices": [],
+                                       "conflict": False, "gap": gap})
+    summary = EnterpriseQA(chunks, llm=declined_llm,
+                           reranker=_both_clause_reranker(chunks)).answer(
+        "研发部门有财务要报销，需要多长时间才可以？")
+    assert (summary.status, summary.completeness) == ("completed", "partial")
+
+    missing = EnterpriseQA(chunks).answer("员工福利积分如何兑换？")
+    assert (missing.status, missing.completeness) == ("insufficient_evidence", "none")
+    assert missing.gaps
+
+
+def test_completeness_follows_the_status_downgrade(chunks):
+    """Declining after a completed search must not leave completeness=complete."""
+
+    class HesitantLLM(MockLLM):
+        def decide_action(self, question, observations, history=None):
+            if not observations:
+                return type("Decision", (), {"action": "search", "query": question, "reason": "先检索"})()
+            return type("Decision", (), {"action": "insufficient_evidence", "query": None,
+                                         "reason": "引用不足以覆盖问题"})
+
+    result = EnterpriseQA(chunks, llm=HesitantLLM()).answer("差旅报销需要什么材料？")
+    assert result.status == "insufficient_evidence"
+    assert result.answer is None
+    assert result.completeness == "none"
+    assert "引用不足以覆盖问题" in result.gaps
+
+
+def test_completeness_is_derived_from_status_answer_and_gaps():
+    """The field cannot drift: it is recomputed from the other fields."""
+    assert Answer("completed", "结论", [], [], [], {}, {"verified": True}).completeness == "complete"
+    partial = Answer("completed", "结论", [], ["审核时长未提供"], [], {}, {"verified": True})
+    assert (partial.completeness, partial.answer_complete) == ("partial", False)
+
+    declined = Answer("completed", "结论", [], ["审核时长未提供"], [], {}, {"verified": True})
+    declined.decline("追查后证据不足")
+    assert (declined.status, declined.answer, declined.completeness) == (
+        "insufficient_evidence", None, "none")
+    assert declined.gaps == ["审核时长未提供", "追查后证据不足"]
+
+    # An empty answer is "no answer", not a complete one.
+    assert Answer("completed", "   ", [], [], [], {}, {"verified": True}).completeness == "none"
+    assert Answer("conflict_detected", None, [], ["冲突"], [], {}, {}).completeness == "none"
 
 
 def _sse_content(content):
@@ -427,12 +489,14 @@ def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
     assert observations_seen[0] == []
     assert observations_seen[1] == [
         {"query": "不存在的关键词", "evidence_count": 0, "conflict": False,
-         "status": "insufficient_evidence", "verified": False, "rewritten_query": True},
+         "status": "insufficient_evidence", "completeness": "none",
+         "verified": False, "rewritten_query": True},
     ]
     assert len(observations_seen[2]) == 2
     second = observations_seen[2][1]
     assert second["query"] == "差旅报销需要什么材料？"
     assert second["status"] == "completed"
+    assert second["completeness"] == "complete"
     assert second["conflict"] is False
     assert second["evidence_count"] == len(result.citations)
     assert second["verified"] is True

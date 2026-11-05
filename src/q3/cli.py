@@ -71,6 +71,7 @@ def save_run(name: str, args, question: str, payload: dict, result: dict) -> Non
         "command": command,
         "question": question,
         "status": result.get("status"),
+        "completeness": result.get("completeness"),
         "answer": result.get("answer"),
         "citations": result.get("citations", []),
         "gaps": result.get("gaps", []),
@@ -112,6 +113,8 @@ def print_react_summary(question: str, result: dict) -> None:
             print(f"  - {item.get('action')}: {item.get('result')} {extra}", file=sys.stderr)
     print("-" * 68, file=sys.stderr)
     print(f"最终状态：{result.get('status')}", file=sys.stderr)
+    print(f"完整度：{result.get('completeness')}"
+          f"（complete=完全回答 / partial=部分回答，缺口见 gaps / none=未回答）", file=sys.stderr)
     print(f"模型回答：{result.get('answer')}", file=sys.stderr)
     print(f"引用：{json.dumps(result.get('citations', []), ensure_ascii=False)[:400]}", file=sys.stderr)
     print(f"核验：{result.get('verification')}", file=sys.stderr)

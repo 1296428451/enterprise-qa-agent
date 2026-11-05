@@ -3,6 +3,8 @@
 ## 调用流程
 请求解析 -> ReAct planner 决定检索动作 -> 混合候选（BM25 + mock token-overlap semantic signal） -> 候选合并 -> 重排 -> query-aware 证据抽取（证据带适用范围 Scope） -> 证据选择 -> 版本冲突检查 -> 一次作答调用（同时判断范围优先或真冲突） -> 引用核验 -> 返回结果与 trace。
 
+返回体是 `Answer(status, answer, citations, gaps, trace, retrieval, verification, completeness)`。`status` 只表达有没有给出答案，覆盖面由 `completeness` 表达：`complete`（通过核验且有答案、`gaps` 为空）、`partial`（有答案但 `gaps` 非空，属部分回答）、`none`（未给出答案）。它是派生字段，由 `status`/`answer`/`gaps` 在 `src/q3/models.py` 的 `refresh_completeness()` 里计算，状态被降级（模型改判拒答、触达 `max_steps`）时由 `decline()` 同步刷新，因此不会与实际输出不一致。
+
 ```text
 Question
   -> bounded ReAct decision
