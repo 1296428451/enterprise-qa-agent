@@ -31,7 +31,7 @@ python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebui
 python src/q3/manage.py --list --db data/knowledge.db
 ```
 
-默认使用离线 Mock。可显式启用 OpenAI-compatible planner/verifier 或 Provider reranker；先在当前 shell 中配置 `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_API_KEY` 和/或 `RERANK_BASE_URL`、`RERANK_MODEL`、`RERANK_API_KEY`，再按需传入 `--llm openai-compatible`、`--reranker provider`。密钥只从环境变量读取，不写入项目文件。真实 provider 请求失败或响应格式不正确时会直接报错，不会静默降级到 Mock。
+默认使用确定性的离线 Mock，只用于验证检索流程、控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。先在当前 shell 配置相应的 `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_API_KEY` 和/或 `RERANK_BASE_URL`、`RERANK_MODEL`、`RERANK_API_KEY`。密钥只从环境变量读取，不写入项目文件。真实 provider 请求失败或响应格式不正确时会直接报错，不会静默降级到 Mock。当前联调未能验证在线自主决策或准确率：LLM endpoint TLS 证书已过期，reranker 响应缺少预期的 `data` 数组。
 
 ```bash
 python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
@@ -41,7 +41,9 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 ## ReAct 检索循环
 
-每轮由模型根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。`search` 会执行混合召回、重排和 query-aware 证据抽取；无证据时可以改写查询并再次搜索。循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。达到上限会停止并返回证据不足；冲突或多版本证据始终请求用户确认。
+循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。每轮根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。默认 Mock 的 action 与查询改写由确定性规则生成；只有 `--llm openai-compatible` 才启用 provider 控制的 action 选择。搜索会执行混合召回、重排和 query-aware 证据抽取；冲突或多版本证据请求用户确认，达到步数上限则停止。
+
+`test_q3.py` 中包含模拟 provider 的集成测试，验证 provider 决策下 `search -> observation -> rewritten search -> answer` 流程；它不是在线真实模型测试。当前真实 provider 联调被过期 TLS 证书和 reranker 响应缺少预期 `data` 数组阻断，因此不能据此声称已验证线上自主决策或准确率。
 
 ## Query-Aware Evidence Extraction
 
@@ -55,7 +57,7 @@ python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
 
 ## ReAct 搜索循环
 
-系统采用有界 ReAct 工作流：模型根据上一次检索观察选择 `search`、改写查询、`answer` 或 `insufficient_evidence`。最多执行 5 步，避免无限搜索。首次查询没有证据时，Mock planner 会自动追加查询词；真实 LLM 模式由模型返回结构化 action 和 rewritten query。
+系统采用有界 ReAct 工作流。默认 Mock planner 在无证据时只按固定规则追加“相关制度”；显式启用真实 LLM 模式后，provider 才会返回结构化 action 和 rewritten query。该在线模式当前尚未验证成功，真实 provider 联调受 TLS 证书过期和 reranker 响应缺少预期 `data` 数组阻断，因此没有真实线上准确率结果。
 
 ```bash
 python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json
