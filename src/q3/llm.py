@@ -95,7 +95,8 @@ class MockLLM:
         if len(entries) >= 2 and len(values) > 1:
             return {"answer": "", "citation_indices": [], "conflict": True}
         chosen = entries[0]
-        return {"answer": chosen["quote"], "citation_indices": [chosen["index"]], "conflict": False}
+        return {"answer": chosen["quote"], "citation_indices": [chosen["index"]],
+                "conflict": False, "gap": ""}
 
     async def answer_from_evidence_async(self, question: str, evidence_input: str) -> dict:
         return self.answer_from_evidence(question, evidence_input)
@@ -208,11 +209,13 @@ class OpenAICompatibleLLM:
             "Answer the question using only the numbered evidence. Cite every factual claim with "
             "[index]. Each item carries a Scope line when the clause declares one: when the "
             "question names a scope, the matching scoped clause governs and a general clause that "
-            "would otherwise disagree is not a conflict. If the clauses still contradict each "
-            "other for this question, do not pick a side: return an empty answer, an empty "
-            "citation_indices array and conflict=true. If evidence is merely insufficient, return "
-            "an empty answer with conflict=false. Return strict JSON with string answer, "
-            "integer-array citation_indices and boolean conflict.",
+            "would otherwise disagree is not a conflict. If the question mixes something the "
+            "evidence covers with something it does not, answer the covered part with citations and "
+            "put the missing part in gap. If the clauses still contradict each other for this "
+            "question, do not pick a side: return an empty answer, an empty citation_indices array "
+            "and conflict=true. If the evidence covers nothing, return an empty answer with "
+            "conflict=false and describe what is missing in gap. Return strict JSON with string "
+            "answer, integer-array citation_indices, boolean conflict and string gap.",
             {"question": question, "evidence": evidence_input},
         )
         answer = result.get("answer")
@@ -222,6 +225,8 @@ class OpenAICompatibleLLM:
             raise ValueError("LLM answer must contain answer and citation_indices")
         if not isinstance(conflict, bool):
             raise ValueError("LLM answer conflict must be a boolean")
+        if not isinstance(result.get("gap", ""), str):
+            raise ValueError("LLM answer gap must be a string")
         return result
 
     def answer_from_evidence(self, question: str, evidence_input: str) -> dict:

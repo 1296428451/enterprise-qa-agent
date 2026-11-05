@@ -105,6 +105,40 @@ Evidence:
     assert ambiguous["answer"] == "" and ambiguous["citation_indices"] == []
 
 
+class _ScriptedAnswerLLM(MockLLM):
+    """Reuse the deterministic planner/verifier, script only the answer payload."""
+
+    def __init__(self, payload):
+        self.payload = payload
+
+    def answer_from_evidence(self, question, evidence_input):
+        return dict(self.payload)
+
+
+def test_empty_model_answer_reports_insufficiency_not_index_error(chunks):
+    gap = "制度未规定审批与到账周期"
+    llm = _ScriptedAnswerLLM({"answer": "", "citation_indices": [], "conflict": False, "gap": gap})
+    result = EnterpriseQA(chunks, llm=llm, reranker=_both_clause_reranker(chunks)).answer(
+        "研发部门有财务要报销，需要多长时间才可以？")
+    assert result.status == "insufficient_evidence"
+    assert result.answer is None and result.citations == []
+    assert result.gaps == [gap]
+    assert "引用索引" not in " ".join(result.gaps)
+    actions = [(step.get("action"), step.get("result")) for step in result.trace]
+    assert ("answer_from_evidence", "model returned an empty answer") in actions
+
+
+def test_partial_answer_keeps_model_gap(chunks):
+    gap = "制度未规定审批与到账周期"
+    llm = _ScriptedAnswerLLM({"answer": "研发部门需在费用发生后 15 天内提交。",
+                              "citation_indices": [1], "conflict": False, "gap": gap})
+    result = EnterpriseQA(chunks, llm=llm, reranker=_both_clause_reranker(chunks)).answer(
+        "研发部门有财务要报销，需要多长时间才可以？")
+    assert result.status == "completed"
+    assert result.answer and "15 天" in result.answer
+    assert result.gaps == [gap]
+
+
 def _sse_content(content):
     delta = json.dumps({"choices": [{"delta": {"content": content}}]})
     return httpx.Response(200, content=f"data: {delta}\n\ndata: [DONE]\n\n".encode())
@@ -271,7 +305,7 @@ def test_invalid_or_missing_citation_indices_abstain_without_fallback(chunks, ci
     assert result.status == "insufficient_evidence"
     assert result.answer is None
     assert result.citations == []
-    assert result.gaps == ["答案引用索引缺失、重复或无效"]
+    assert result.gaps == ["答案的引用编号缺失、越界或重复"]
     assert result.verification["verified"] is False
 
 

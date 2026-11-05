@@ -86,12 +86,23 @@ class EnterpriseQA:
                            "extracted_evidence_count": extraction.candidates_with_evidence},
                           {"verified": False, "conflict_detected": True, "action": "ask_user"})
         answer_text = generated.get("answer", "")
+        model_gap = generated.get("gap") if isinstance(generated.get("gap"), str) else ""
         cited_indices = generated.get("citation_indices")
+        if not answer_text.strip():
+            # The model declining to answer is not a citation-format violation;
+            # keep the two cases apart so the gap text stays diagnosable.
+            trace.append({"action": "answer_from_evidence", "result": "model returned an empty answer"})
+            return Answer("insufficient_evidence", None, [],
+                          [model_gap or "模型判断现有证据不足以回答该问题"], trace,
+                          {"candidate_count": len(candidates), "selected_count": len(evidence),
+                           "extracted_evidence_count": extraction.candidates_with_evidence,
+                           "answer_input": answer_input},
+                          {"verified": False, "action": "ask_user"})
         if (not isinstance(cited_indices, list) or not cited_indices
                 or any(type(index) is not int or index < 1 or index > len(extracted_citations) for index in cited_indices)
                 or len(set(cited_indices)) != len(cited_indices)):
             trace.append({"action": "answer_from_evidence", "result": "invalid citation indices"})
-            return Answer("insufficient_evidence", None, [], ["答案引用索引缺失、重复或无效"], trace,
+            return Answer("insufficient_evidence", None, [], ["答案的引用编号缺失、越界或重复"], trace,
                           {"candidate_count": len(candidates), "selected_count": len(evidence),
                            "extracted_evidence_count": extraction.candidates_with_evidence,
                            "answer_input": answer_input}, {"verified": False, "action": "ask_user"})
@@ -100,7 +111,12 @@ class EnterpriseQA:
         verification = await self.llm.averify(question, answer_text, valid_citations) if hasattr(self.llm, "averify") else await self.llm.verify_async(question, answer_text, valid_citations) if hasattr(self.llm, "verify_async") else self.llm.verify(question, answer_text, valid_citations)
         trace.append({"action": "verify_answer", "result": "passed" if verification["verified"] else "unsupported claims"})
         status = "completed" if verification["verified"] and answer_text else "insufficient_evidence"
-        gaps = [] if status == "completed" else verification.get("unsupported_claims", []) or ["答案未通过引用核验"]
+        if status == "completed":
+            # A partial answer may still leave part of the question uncovered;
+            # keep the model's own note instead of dropping it.
+            gaps = [model_gap] if model_gap else []
+        else:
+            gaps = verification.get("unsupported_claims", []) or ["答案未通过引用核验"]
         return Answer(status, answer_text if status == "completed" else None, valid_citations, gaps, trace,
                       {"candidate_count": len(candidates), "selected_count": len(evidence),
                        "extracted_evidence_count": extraction.candidates_with_evidence,
