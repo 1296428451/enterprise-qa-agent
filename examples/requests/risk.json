@@ -1,6 +1,0 @@
-{
-  "request_id": "demo-risk-001",
-  "asset_ids": ["M02"],
-  "constraints": {"publish_at": "2026-11-06T18:00:00+08:00"},
-  "alternative_slots": []
-}

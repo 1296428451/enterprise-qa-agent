@@ -1,0 +1,34 @@
+{
+  "scenario": "最终回答与引用核验结果",
+  "provider_mode": "live provider (openai-compatible)",
+  "command": "python src/q3/cli.py --question \"报销期限多久？\" --llm openai-compatible --reranker provider --query-aware provider --max-steps 5 --save-run live_conflict",
+  "question": "报销期限多久？",
+  "status": "conflict_detected",
+  "answer": null,
+  "citations": [
+    {
+      "document_id": "D01",
+      "chunk_id": "D01-v1-c01",
+      "version": "v1",
+      "quote": "普通费用报销应在费用发生后 30 天内提交。适用于所有正式员工。"
+    },
+    {
+      "document_id": "D02",
+      "chunk_id": "D02-v1-c01",
+      "version": "v1",
+      "quote": "普通费用报销应在费用发生后 15 天内提交。适用于研发部门。"
+    }
+  ],
+  "gaps": [
+    "检索到的制度内容存在冲突"
+  ],
+  "retrieval": {
+    "candidate_count": 4,
+    "selected_count": 2
+  },
+  "verification": {
+    "verified": false,
+    "conflict_detected": true,
+    "action": "ask_user"
+  }
+}

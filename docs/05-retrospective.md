@@ -6,7 +6,7 @@
 
 第二难点是 Provider 接入的网络层。最初使用标准库 `urllib` 时遇到 `CERTIFICATE_VERIFY_FAILED`，一度被判断为服务端证书过期；随后用 OpenAI SDK、`requests` 和 `httpx` 对照实测发现同一 endpoint 均可正常调用，默认 SSL context 也能校验证书链，问题出在特定客户端的 CA/代理信任路径而非证书本身。最终统一改为 `httpx.AsyncClient`，chat/completions 走 `stream=true` SSE 并聚合完整回复后再解析，reranker 走原生非流式 JSON；全程保持 TLS 校验开启，不提供关闭校验的开关。
 
-第三难点是"跑通组件"与"整链稳定达标"之间的差距。SSE chat、reranker、Query-Aware 抽取、答案生成与核验各阶段的真实调用都成功，首步 ReAct 协议违规也通过收紧 instruction 修复；但题库内可答题在真实模型下多次未稳定返回 `completed`——模型有时给出无效 `citation_indices`，有时在已有有效证据时仍选择 `insufficient_evidence`。我没有通过放宽引用校验或回退 Mock 来"刷绿"，而是如实记录为模型输出行为与证据一致性问题。
+第三难点是 ReAct 观察结果的信息完整性。SSE chat、reranker、Query-Aware 抽取、答案生成与核验各阶段的真实调用都成功，但题库内可答题一度反复返回 `insufficient_evidence`：内部已生成带引用且通过 verify 的答案，模型下一步却看不到这份证据，因为 observation 只回传了 `status` 和 `evidence_count`。我定位到根因后让 observation 携带 `verified`、`answer_preview`、`evidence_quotes`，并在 instruction 中说明已核验证据应返回 `answer`，可答题随即返回 `completed`。这属于补齐信息流，不是放宽引用校验或回退 Mock。
 
 ## 学习收获
 
@@ -20,7 +20,7 @@
 - 候选信号为 BM25 + token-overlap MockSemantic；FAISS 向量索引可单独构建，但未接入默认 CLI 在线主链。
 - 冲突检测依赖 token/规则 heuristic，不能视为通用语义冲突识别。
 - Provider 的传输层空闲超时与瞬时网络错误最多额外重试 3 次（首次 + 3 次，共 4 次），每次丢弃 partial；HTTP 4xx、schema/JSON 错误不重试，异常原样向调用方传播，不转换为 structured failed `Answer`。
-- 题库内 clear-case 的 `completed` 未在真实模型下稳定产出，在线答案准确率未验证；离线 Mock 的评测结果不能外推为在线效果。
+- 真实模型输出有随机性，三段 `completed`/`conflict_detected`/`insufficient_evidence` 为单次实测记录，在线答案准确率未系统评测；离线 Mock 的评测结果不能外推为在线效果。
 - `max_steps` 正值校验与 evaluator 步数配置一致性仍有改进空间。
 
 ## 下一步

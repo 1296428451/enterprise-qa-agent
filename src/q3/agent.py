@@ -118,6 +118,17 @@ class EnterpriseQA:
                 result = await self._answer_once_async(current_query, history)
                 observation = {"query": current_query, "evidence_count": len(result.citations),
                               "conflict": result.status in {"conflict_detected", "version_conflict"}, "status": result.status}
+                # Give the decision model the verified evidence it just produced.
+                # Without this, decide_action only sees a status flag and rejects
+                # for lack of visible evidence even when the answer passed verify.
+                verification = result.verification or {}
+                observation["verified"] = bool(verification.get("verified"))
+                if result.answer:
+                    observation["answer_preview"] = result.answer
+                if result.citations:
+                    observation["evidence_quotes"] = [
+                        str(c.get("quote", "")) for c in result.citations[:3] if c.get("quote")
+                    ]
                 if result.status in {"insufficient_evidence", "conflict_detected", "version_conflict"}:
                     observation["rewritten_query"] = current_query != question
                 observations.append(observation)

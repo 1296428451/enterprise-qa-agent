@@ -1,0 +1,11 @@
+{
+  "question": "公司有住房补贴吗？",
+  "conversation_history": [],
+  "config": {},
+  "mode": {
+    "llm": "openai-compatible",
+    "reranker": "provider",
+    "query_aware": "provider",
+    "max_steps": 5
+  }
+}

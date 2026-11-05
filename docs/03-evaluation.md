@@ -4,7 +4,7 @@
 从仓库任意目录执行：
 
 ```bash
-python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/test -q
+python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/tests -q
 ```
 
 Embedding 冒烟测试在未设置 `FRAMES_EMBEDDING_MODEL` 时会跳过；这不等同于向量模型集成验收。
@@ -24,6 +24,16 @@ python src/q3/cli.py --input examples/requests/normal.json
 python src/q3/cli.py --input examples/requests/missing.json
 ```
 
+### 真实 Provider 运行记录
+
+`python src/q3/cli.py --question "..." --llm openai-compatible --reranker provider --query-aware provider --save-run NAME` 会把请求、ReAct 过程、最终结果分别写入 `examples/{requests,traces,results}/NAME.json`。已提交三组真实运行（均为真实模型决策，非 mock）：
+
+- `live_react`（`差旅报销需要什么材料？`）：`search → answer`，`status=completed`，答案「差旅报销需提交发票、行程单和审批记录。[1]」，1 条引用（D03），`verified=true`。
+- `live_conflict`（`报销期限多久？`）：抽取到 D01（30 天）与 D02（15 天）冲突条款，`status=conflict_detected`，2 条引用，不自动选边。
+- `live_missing`（`公司有住房补贴吗？`）：模型连续 5 次改写查询继续 `search`，达到 `max_steps` 上限后返回 `insufficient_evidence`，0 引用。
+
+三条 `react_steps` 路径不同，满足"模型根据不同工具结果调整动作"的运行记录要求。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 只回传 `status`/`evidence_count`，没有把已核验通过的答案与证据原文交给决策模型，导致模型在看不到证据时连续拒答；修复方式是让 observation 携带 `verified`、`answer_preview`、`evidence_quotes`，并在 instruction 中说明已核验证据应返回 `answer`。该修复未改动 `quote` 精确子串校验、`citation_indices` 校验或 `max_steps` 上限。真实模型输出仍有随机性，上述记录是单次实测结果，不代表在线准确率已系统评测。
+
 ## 评测报告与指标
 - `data/q3_eval_report.json`：10 条离线问答案例，报告状态准确率、文档集合 exact accuracy、宏平均文档 precision/recall/F1、可回答题 exact-match、正确拒答准确率。
 - `data/q3_react_eval_report.json`：题库外 ReAct 案例，报告状态准确率、文档集合准确率和步数上限遵守率。
@@ -39,6 +49,6 @@ LLM、Query-Aware 与 reranker chat/completions 使用 `httpx.AsyncClient` SSE�
 
 真实 Provider smoke（py312 + 本地 `.env`，标准 TLS 校验）：`post_chat_stream` 成功接收 SSE 数据块、聚合 `delta.content` 并解析为 JSON 对象；`ProviderReranker.score_async` 成功返回两个候选分数（约 `0.9992`、`0.0010`）；`QueryAwareExtractor.aextract`（quote 为候选原文精确子串）、`aanswer_from_evidence`、`averify` 均返回合规 JSON。证书链校验正常：默认 SSL context 可正常校验证书链，OpenAI SDK、requests、urllib 均 HTTP 200，TLS verify 始终开启且代码显式拒绝 `verify=False`。本次将 `src/q3/llm.py` 中 `decide_action_async` 的 instruction 收紧为"observations 为空必须 `action=search`、不得凭常识作答"后，真实 CLI 首步不再抛 `ValueError: the first ReAct action must be search`；`src/q3/agent.py` 首步 search 硬检查保留兜底。
 
-真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`）：`报销期限多久？` 返回 `conflict_detected`（D01/D02 共 2 条引用），`公司有住房补贴吗？` 返回 `insufficient_evidence`（0 条引用），两者符合预期；`差旅报销需要什么材料？` 4 次真实运行均未返回 `completed`（3 次 `insufficient_evidence`、1 次 `conflict_detected`）：1 次内部已生成带 1 条有效引用的答案且 `verify` 通过、但模型第 3 步仍判 `insufficient_evidence` 导致最终降级，2 次卡在 `答案引用索引缺失、重复或无效`，1 次因 query-aware 抽出多候选冲突信息进入冲突状态。完整 pytest 为 65 passed、1 skipped；离线 MockTransport 覆盖重试、取消、client 生命周期与异步 ReAct 顺序。结论：真实整链已可执行、冲突与拒答行为符合预期，但 clear-case 的 `completed` 未稳定产出，在线答案准确率仍未验证；未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。
+修复 observation 信息流后，真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`）均产出预期状态：`差旅报销需要什么材料？` 返回 `completed`（答案带 1 条有效引用 D03，`verify` 通过）；`报销期限多久？` 返回 `conflict_detected`（D01/D02 共 2 条引用）；`公司有住房补贴吗？` 返回 `insufficient_evidence`（0 条引用）。三组运行记录见 `examples/{requests,traces,results}/live_*.json`。修复前 clear-case 曾多次未返回 `completed`，根因是决策模型收不到已核验的答案与证据；修复只补齐 observation 信息，未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。完整 pytest 为 65 passed、1 skipped；离线 MockTransport 覆盖重试、取消、client 生命周期与异步 ReAct 顺序。真实模型输出仍有随机性，上述为单次实测记录，不代表在线答案准确率已系统评测。
 
 冲突检测目前依赖 token/规则 heuristic，不能视为通用语义冲突识别。仅流式空闲超时与瞬时传输错误会重试（最多额外 3 次）；HTTP 4xx、schema/JSON 错误及模型协议违规不重试，异常直接向 CLI 抛出，也不转换为 structured failed `Answer`。`max_steps` 正值校验及 evaluator 步数配置一致性仍有改进空间。

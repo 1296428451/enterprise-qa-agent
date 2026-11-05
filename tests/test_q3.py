@@ -291,15 +291,22 @@ def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
     assert {citation["document_id"] for citation in result.citations} == {"D03"}
     search_steps = [step for step in result.trace if step.get("action") == "search"]
     assert [step["query"] for step in search_steps] == ["不存在的关键词", "差旅报销需要什么材料？"]
-    assert observations_seen == [
-        [],
-        [{"query": "不存在的关键词", "evidence_count": 0, "conflict": False,
-          "status": "insufficient_evidence", "rewritten_query": True}],
-        [{"query": "不存在的关键词", "evidence_count": 0, "conflict": False,
-          "status": "insufficient_evidence", "rewritten_query": True},
-         {"query": "差旅报销需要什么材料？", "evidence_count": len(result.citations), "conflict": False,
-          "status": "completed"}],
+    # The observation now carries the verified evidence back to the decision
+    # model, so the decision step can see the answer it just produced.
+    assert observations_seen[0] == []
+    assert observations_seen[1] == [
+        {"query": "不存在的关键词", "evidence_count": 0, "conflict": False,
+         "status": "insufficient_evidence", "verified": False, "rewritten_query": True},
     ]
+    assert len(observations_seen[2]) == 2
+    second = observations_seen[2][1]
+    assert second["query"] == "差旅报销需要什么材料？"
+    assert second["status"] == "completed"
+    assert second["conflict"] is False
+    assert second["evidence_count"] == len(result.citations)
+    assert second["verified"] is True
+    assert second["answer_preview"] == "需要发票和行程单"
+    assert second["evidence_quotes"] and all(isinstance(q, str) and q for q in second["evidence_quotes"])
     assert complete_mock.call_count == 7
 
 

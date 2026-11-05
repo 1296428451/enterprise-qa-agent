@@ -9,20 +9,26 @@
       "answer_from_evidence": "success",
       "verify": "success",
       "reranker_native": "success",
-      "reranker_smoke_scores": [0.9992, 0.0010],
+      "reranker_smoke_scores": [
+        0.9992,
+        0.001
+      ],
       "agent_e2e_first_step_guard": "passed_after_instruction_fix",
       "agent_e2e_conflict_question": "conflict_detected_2_citations",
-      "agent_e2e_out_of_scope_question": "insufficient_evidence_0_citations",
-      "agent_e2e_clear_question": "not_completed_4_real_runs_3_insufficient_evidence_1_conflict_detected",
+      "agent_e2e_out_of_scope_question": "insufficient_evidence_0_citations_at_step_limit",
+      "agent_e2e_clear_question": "completed_with_1_verified_citation_after_observation_fix",
       "tls_certificate_status": "valid_chain_verification_enabled",
-      "certificate_verification_disabled": false
+      "certificate_verification_disabled": false,
+      "agent_e2e": "three_real_runs_recorded_in_examples",
+      "observation_fix": "observation now carries verified/answer_preview/evidence_quotes; no citation or quote validation relaxed"
     },
     "notes": [
       "Real Provider smoke used py312 with the local .env and standard TLS verification enabled: post_chat_stream received SSE events, aggregated delta.content and parsed a JSON object; ProviderReranker.score_async, QueryAwareExtractor.aextract, aanswer_from_evidence and averify all returned schema-valid results.",
       "TLS certificate chain validation succeeds with the default SSL context; OpenAI SDK, requests and urllib all return HTTP 200. TLS verification is always enabled and verify=False is rejected.",
       "The decide_action_async instruction now requires action=search when observations is empty and forbids answering from general knowledge; the agent.py first-step-must-be-search guard is kept as a backstop and the live CLI no longer raises ValueError on the first ReAct decision.",
       "Live CLI E2E with --llm openai-compatible --reranker provider --query-aware provider: the reimbursement deadline question returned conflict_detected with 2 citations, the housing allowance question returned insufficient_evidence with 0 citations, and the travel materials question did not return completed in 4 real runs (3 insufficient_evidence, 1 conflict_detected). One run internally generated a 1-citation answer with verify passed but was downgraded by a later insufficient_evidence decision; two runs stopped at invalid citation indices. No protocol checks (exact quote substring, citation_indices) were relaxed, no markdown-fence layer added, no silent Mock fallback and no fabricated completed status.",
-      "No live-provider answer accuracy was measured; the accuracy metrics below are from the local offline deterministic pipeline. MockTransport offline tests cover retry, cancellation, client lifecycle and async ReAct order; full pytest is 65 passed, 1 skipped."
+      "Three real-provider CLI runs are recorded under examples/{requests,traces,results}/live_*.json: completed, conflict_detected, insufficient_evidence. Clear-case previously failed because the ReAct observation omitted the verified answer and evidence quotes; the fix only completed that information flow.",
+      "Offline accuracy metrics below remain from the local deterministic pipeline; the three live runs are single observations, not a systematic online accuracy evaluation."
     ]
   },
   "dataset": {
@@ -73,8 +79,15 @@
     {
       "case_id": "q3-05",
       "question": "报销最晚什么时候提交？",
-      "expected_documents": ["D01", "D02"],
-      "actual_documents": ["D01", "D02", "D03"],
+      "expected_documents": [
+        "D01",
+        "D02"
+      ],
+      "actual_documents": [
+        "D01",
+        "D02",
+        "D03"
+      ],
       "status": "conflict_detected",
       "document_precision": 0.6667,
       "document_recall": 1.0,

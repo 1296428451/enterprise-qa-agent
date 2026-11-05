@@ -1,0 +1,11 @@
+{
+  "question": "差旅报销需要什么材料？",
+  "conversation_history": [],
+  "config": {},
+  "mode": {
+    "llm": "openai-compatible",
+    "reranker": "provider",
+    "query_aware": "provider",
+    "max_steps": 5
+  }
+}

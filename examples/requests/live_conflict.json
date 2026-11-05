@@ -1,0 +1,11 @@
+{
+  "question": "报销期限多久？",
+  "conversation_history": [],
+  "config": {},
+  "mode": {
+    "llm": "openai-compatible",
+    "reranker": "provider",
+    "query_aware": "provider",
+    "max_steps": 5
+  }
+}

@@ -12,14 +12,14 @@ python -m pip install -r requirements.txt
 运行全量验收：
 
 ```bash
-python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/test -q
+python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/tests -q
 ```
 
 Embedding 冒烟测试默认跳过；设置本地模型目录后可启用：
 
 ```bash
 export FRAMES_EMBEDDING_MODEL=path/to/all-MiniLM-L6-v2
-pytest test/test_embedding.py -v
+pytest tests/test_embedding.py -v
 ```
 
 PowerShell 可用 `$env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"` 设置变量。
@@ -51,7 +51,7 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 真实 Provider smoke（py312 + 本地 `.env`，标准 TLS 校验）：`post_chat_stream` 成功收到 SSE 数据块、聚合 `delta.content` 并解析出 JSON 对象；`ProviderReranker.score_async` 成功对两个候选返回分数（约 `0.9992`、`0.0010`）；`QueryAwareExtractor.aextract`（quote 为候选原文精确子串）、`aanswer_from_evidence`、`averify` 均返回合规 JSON。证书链校验正常：默认 SSL context、OpenAI SDK、requests、urllib 均可成功调用，TLS verify 始终开启且禁止关闭。本次将 `src/q3/llm.py` 中 `decide_action_async` 的 instruction 收紧为"observations 为空必须 `action=search`、不得凭常识作答"后，真实 CLI 首步不再抛 `ValueError: the first ReAct action must be search`；`src/q3/agent.py` 的首步 search 硬检查保留作为兜底。
 
-真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`）：`报销期限多久？` 返回 `conflict_detected`（2 条引用 D01/D02），`公司有住房补贴吗？` 返回 `insufficient_evidence`（0 条引用），二者符合预期；`差旅报销需要什么材料？` 4 次真实运行均未返回 `completed`（3 次 `insufficient_evidence`、1 次 `conflict_detected`）——其中 1 次内部已生成带 1 条有效引用的答案且 `verify` 通过，但模型第 3 步仍判 `insufficient_evidence` 导致最终被降级，另 2 次卡在 `答案引用索引缺失、重复或无效`，1 次因 query-aware 抽出多候选冲突信息进入冲突状态。故真实整链已可执行、冲突与拒答行为符合预期，但题库内 clear-case 的 `completed` 未稳定产出，不声称在线答案准确率或 completed Agent E2E 已验证；未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。完整 pytest 为 65 passed、1 skipped。
+真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`，运行记录见 `examples/{requests,traces,results}/live_*.json`）：`差旅报销需要什么材料？` 返回 `completed`（答案「差旅报销需提交发票、行程单和审批记录。[1]」，1 条引用 D03，`verify` 通过）；`报销期限多久？` 返回 `conflict_detected`（2 条引用 D01/D02）；`公司有住房补贴吗？` 连续改写检索至步数上限后返回 `insufficient_evidence`（0 条引用）。三条 `react_steps` 体现模型依据不同工具观察调整动作。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 未把已核验答案与证据原文回传决策模型，修复后只补齐该信息流，未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。真实模型输出有随机性，以上为单次实测记录，不声称在线答案准确率已系统评测。完整 pytest 为 65 passed、1 skipped。
 
 ```bash
 python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json
@@ -72,7 +72,7 @@ python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
 `data/external/frames_test.tsv` 是 FRAMES test split。因为当前无法取得 Wikipedia 正文，该评测只比较 query 与 article title 的匹配，属于 **title-only gold-link proxy**，不能解读为全文 RAG、答案准确率或多跳推理效果。报告与数据清单见 `data/external/frames_eval_report.json` 和 `data/external/frames_manifest.json`。
 
 ```bash
-pytest test/ -v
+pytest tests/ -v
 python src/q3/evaluate_frames.py --method bm25
 python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 ```
@@ -81,9 +81,29 @@ python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 
 ## 第三题示例与项目说明
 
-- 请求：`examples/requests/normal.json`、`examples/requests/missing.json`、`examples/requests/provider_failure.json`
-- 输出与 trace：`examples/traces/normal.json`、`examples/traces/missing.json`、`examples/traces/provider_failure.json`
+- 离线 Mock 请求：`examples/requests/normal.json`、`examples/requests/missing.json`、`examples/requests/provider_failure.json`
+- 离线 Mock 输出与 trace：`examples/traces/normal.json`、`examples/traces/missing.json`、`examples/traces/provider_failure.json`
 - provider schema 失败回放：`python src/q3/cli.py --input examples/requests/provider_failure.json --provider-response-fixture examples/provider_invalid_action_response.json`
+
+### 一条命令跑通真实 Provider 并落盘
+
+`--save-run NAME` 会把请求、ReAct 过程、最终结果分别写入 `examples/requests/NAME.json`、`examples/traces/NAME.json`、`examples/results/NAME.json`，同时在标准错误输出打印从 ReAct 决策到模型回答的完整过程，标准输出仍是原有 JSON：
+
+```bash
+python src/q3/cli.py --question "差旅报销需要什么材料？" \
+  --llm openai-compatible --reranker provider --query-aware provider \
+  --max-steps 5 --save-run live_react
+```
+
+落盘文件只记录 CLI 参数，不写任何环境变量值、API Key、endpoint 或主机名。已提交三条真实 Provider 运行记录：
+
+| NAME | 场景 | 决策路径 | 最终状态 |
+|---|---|---|---|
+| `live_react` | 有明确证据的差旅报销 | `search → answer` | `completed`，返回带引用答案 |
+| `live_conflict` | 报销期限存在两条冲突制度 | 冲突检测后 `ask_user` | `conflict_detected`，2 条引用 |
+| `live_missing` | 题库外住房补贴 | 连续 5 次 `search` 改写查询后触顶 | `insufficient_evidence`，0 引用 |
+
+三条路径体现模型依据不同工具观察调整动作；`traces/*.json` 的 `react_steps` 记录 step、action、query、tool_parameters、result_summary、next_action_reason，`pipeline_trace` 记录 plan/检索/rerank/抽取/答案/核验。
 
 示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 仅保留在仓库历史；当前可运行主项目和验收材料均为第三题。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
 

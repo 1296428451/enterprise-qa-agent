@@ -1,0 +1,30 @@
+{
+  "scenario": "最终回答与引用核验结果",
+  "provider_mode": "live provider (openai-compatible)",
+  "command": "python src/q3/cli.py --question \"差旅报销需要什么材料？\" --llm openai-compatible --reranker provider --query-aware provider --max-steps 5 --save-run live_react",
+  "question": "差旅报销需要什么材料？",
+  "status": "completed",
+  "answer": "差旅报销需提交发票、行程单和审批记录。[1]",
+  "citations": [
+    {
+      "document_id": "D03",
+      "chunk_id": "D03-v1-c01",
+      "version": "v1",
+      "quote": "差旅报销需要提交发票、行程单和审批记录。",
+      "key_info": "需提交发票、行程单和审批记录"
+    }
+  ],
+  "gaps": [],
+  "retrieval": {
+    "candidate_count": 4,
+    "selected_count": 1,
+    "extracted_evidence_count": 1,
+    "compression_ratio": 0.2,
+    "answer_input": "Question: 差旅报销需要提交哪些材料？查询公司差旅报销制度、报销凭证及审批要求。\n\nEvidence:\n[1] (D03) 需提交发票、行程单和审批记录\n    Quote: 差旅报销需要提交发票、行程单和审批记录。"
+  },
+  "verification": {
+    "verified": true,
+    "unsupported_claims": [],
+    "action": "answer"
+  }
+}

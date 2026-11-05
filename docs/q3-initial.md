@@ -5,7 +5,7 @@
 ## 企业问答 CLI
 
 ```bash
-python -m pytest test/ -v
+python -m pytest tests/ -v
 python src/q3/cli.py --question "差旅报销需要什么材料？"
 python src/q3/cli.py --input examples/requests/q3_conflict.json
 ```
@@ -51,7 +51,7 @@ python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/
 
 ```powershell
 $env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"
-python -m pytest test/ -v
+python -m pytest tests/ -v
 python src/q3/evaluate_frames.py --method rrf --model $env:FRAMES_EMBEDDING_MODEL --output data/external/frames_eval_report.json
 ```
 

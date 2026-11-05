@@ -15,7 +15,7 @@
 - 示例请求、原始输出/trace、离线评测报告。
 
 ## 非范围与边界
-不承诺在线真实模型准确率，不包含真实生产凭证、真实企业数据、自动发布、生产级鉴权/并发治理，也不把 Mock 决策写成真实模型决策。Provider 网络层使用 `httpx.AsyncClient`，chat/completions 采用 `stream=true` SSE 并具备 30 秒 idle 超时重试（最多额外 3 次、丢弃 partial，HTTP/schema/JSON 不重试、`CancelledError` 原样传播），TLS 校验始终开启且禁止关闭。证书链校验正常：默认 SSL context、OpenAI SDK、requests、urllib 均成功调用。真实 smoke 中 SSE chat、原生 reranker 与 Query-Aware/答案生成/核验各阶段调用成功；`decide_action_async` instruction 增加"observations 为空必须 search"约束并保留首步 search 硬检查后，真实 CLI 整链不再因首步协议抛错。冲突题返回 `conflict_detected`（2 条引用）、题库外题返回 `insufficient_evidence`（0 条引用），均符合预期；题库内 clear-case 4 次真实运行未返回 `completed`。因此不把组件 smoke 等同于在线准确率或 completed Agent E2E 验证。
+不承诺在线真实模型准确率，不包含真实生产凭证、真实企业数据、自动发布、生产级鉴权/并发治理，也不把 Mock 决策写成真实模型决策。Provider 网络层使用 `httpx.AsyncClient`，chat/completions 采用 `stream=true` SSE 并具备 30 秒 idle 超时重试（最多额外 3 次、丢弃 partial，HTTP/schema/JSON 不重试、`CancelledError` 原样传播），TLS 校验始终开启且禁止关闭。证书链校验正常：默认 SSL context、OpenAI SDK、requests、urllib 均成功调用。真实 smoke 中 SSE chat、原生 reranker 与 Query-Aware/答案生成/核验各阶段调用成功；`decide_action_async` instruction 增加"observations 为空必须 search"约束并保留首步 search 硬检查后，真实 CLI 整链不再因首步协议抛错。冲突题返回 `conflict_detected`（2 条引用）、题库外题返回 `insufficient_evidence`（0 条引用），均符合预期；修复 observation 信息流后，题库内 clear-case 已返回带引用的 `completed` 答案，三段真实运行记录见 `examples/{requests,traces,results}/live_*.json`。真实模型输出有随机性，仍不把单次实测等同于在线准确率系统评测。
 
 ## 验收标准
 1. 有证据问题返回 `completed`、答案和有效引用。
@@ -23,6 +23,6 @@
 3. 冲突或多版本返回冲突状态并请求确认。
 4. 每步 trace 包含 `step`、`action`、`query`、`tool_parameters`、`result_summary`、`next_action_reason`。
 5. ReAct 步数受 `max_steps` 限制；不泄露 key。
-6. `python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/test -q` 通过（Embedding 冒烟可因未配置本地模型而跳过）。
+6. `python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/tests -q` 通过（Embedding 冒烟可因未配置本地模型而跳过）。
 
 第一题素材排期代码仅保留在历史提交，不属于本次第三题交付主体。
