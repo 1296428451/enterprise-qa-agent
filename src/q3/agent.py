@@ -108,6 +108,8 @@ class EnterpriseQA:
             trace.append({"step": step + 1, "action": decision.action, "query": decision.query,
                           "tool_parameters": {"candidate_limit": self.candidate_limit, "rerank_top": 20},
                           "result_summary": "", "next_action_reason": decision.reason})
+            if step == 0 and decision.action != "search":
+                raise ValueError("the first ReAct action must be search")
             if decision.action == "search":
                 current_query = decision.query or current_query
                 result = self._answer_once(current_query, history)

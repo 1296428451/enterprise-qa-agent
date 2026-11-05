@@ -80,8 +80,6 @@ class OpenAICompatibleLLM:
             {"question": question, "observations": observations, "history": history or []},
         )
         action = result.get("action")
-        if action == "stop":
-            action = "insufficient_evidence"
         if action not in {"search", "answer", "ask_user", "insufficient_evidence"}:
             raise ValueError("LLM action must be search, answer, ask_user, or insufficient_evidence")
         query = result.get("query")

@@ -56,6 +56,25 @@ def test_openai_compatible_llm_parses_plan_and_verification():
     assert complete.call_count == 2
 
 
+def test_openai_compatible_llm_parses_and_validates_react_actions():
+    llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
+    with patch.object(llm, "_complete_json", return_value={
+        "action": "search", "query": "差旅报销材料", "reason": "改写查询"
+    }):
+        decision = llm.decide_action("需要什么材料？", [])
+    assert (decision.action, decision.query, decision.reason) == ("search", "差旅报销材料", "改写查询")
+
+    for payload in (
+        {"action": "search"},
+        {"action": "search", "query": "  "},
+        {"action": "stop", "reason": "结束"},
+        {"action": "unknown"},
+    ):
+        with patch.object(llm, "_complete_json", return_value=payload):
+            with pytest.raises(ValueError):
+                llm.decide_action("问题", [])
+
+
 def test_openai_compatible_llm_rejects_malformed_plan():
     llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
     with patch.object(llm, "_complete_json", return_value={"queries": [], "intent": "x"}):
@@ -171,6 +190,54 @@ def test_react_rewrites_query_after_empty_search(chunks):
     assert result.status == "completed"
     assert any(item.get("action") == "search" and item.get("query") == "不存在的关键词" for item in result.trace)
     assert any(item.get("action") == "search" and item.get("query") == "差旅报销需要什么材料？" for item in result.trace)
+
+
+def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
+    llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
+    decisions = [
+        {"action": "search", "query": "不存在的关键词", "reason": "首次检索"},
+        {"action": "search", "query": "差旅报销需要什么材料？", "reason": "改写查询"},
+        {"action": "answer", "reason": "证据充分"},
+    ]
+    observations_seen = []
+
+    def complete_json(instruction, payload):
+        if instruction.startswith("Choose exactly one action:"):
+            observations_seen.append(json.loads(json.dumps(payload["observations"])))
+            return decisions.pop(0)
+        if instruction.startswith("Generate retrieval queries"):
+            return {"queries": [payload["question"]], "intent": "查询制度"}
+        if instruction.startswith("Answer using only numbered evidence"):
+            return {"answer": "需要发票和行程单", "citation_indices": [1]}
+        if instruction.startswith("Check whether every claim"):
+            return {"verified": True, "unsupported_claims": [], "action": "answer"}
+        raise AssertionError(f"unexpected LLM instruction: {instruction}")
+
+    with patch.object(llm, "_complete_json", side_effect=complete_json) as complete:
+        result = EnterpriseQA(chunks, llm=llm).answer("材料要求是什么？")
+
+    assert result.status == "completed"
+    assert {citation["document_id"] for citation in result.citations} == {"D03"}
+    search_steps = [step for step in result.trace if step.get("action") == "search"]
+    assert [step["query"] for step in search_steps] == ["不存在的关键词", "差旅报销需要什么材料？"]
+    assert observations_seen == [
+        [],
+        [{"query": "不存在的关键词", "evidence_count": 0, "conflict": False,
+          "status": "insufficient_evidence", "rewritten_query": True}],
+        [{"query": "不存在的关键词", "evidence_count": 0, "conflict": False,
+          "status": "insufficient_evidence", "rewritten_query": True},
+         {"query": "差旅报销需要什么材料？", "evidence_count": len(result.citations), "conflict": False,
+          "status": "completed"}],
+    ]
+    assert complete.call_count == 7
+
+
+def test_react_first_action_must_be_search(chunks):
+    llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
+    for action in ("answer", "ask_user", "insufficient_evidence"):
+        with patch.object(llm, "_complete_json", return_value={"action": action, "reason": "首步动作"}):
+            with pytest.raises(ValueError, match="first ReAct action must be search"):
+                EnterpriseQA(chunks, llm=llm).answer("测试问题")
 
 
 def test_react_max_steps_caps_search_loop(chunks):
