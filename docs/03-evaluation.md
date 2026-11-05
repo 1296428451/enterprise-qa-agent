@@ -15,7 +15,7 @@ Embedding 冒烟测试在未设置 `FRAMES_EMBEDDING_MODEL` 时会跳过；这�
 - `missing.json`：题库外住房补贴问题，首轮无证据、改写后仍无证据并拒答。
 - `examples/requests/provider_failure.json`、`examples/provider_invalid_action_response.json` 与 `examples/traces/provider_failure.json`：本地 mock provider schema-invalid response；trace 记录 CLI 回放命令、实际异常输出和失败边界。无真实 key/外网调用。
 
-正常回答与题库外路径在不同观察后采取不同动作。前两份 trace 明确标注 `mocked provider protocol / 非在线真实模型`。provider 失败直接抛出异常终止，不重试、不返回 structured failed `Answer`；此为当前限制。示例不包含真实 key。
+正常回答与题库外路径在不同观察后采取不同动作。前两份 trace 明确标注 `mocked provider protocol / 非在线真实模型`。`provider_failure.json` 回放的是 schema-invalid action 响应：这类协议/schema 错误按设计不重试，异常直接向 CLI 抛出，也不返回 structured failed `Answer`；传输层空闲超时与瞬时网络错误才走 SSE 重试（见下文）。此为当前限制。示例不包含真实 key。
 
 离线示例可从仓库根目录运行：
 
@@ -41,4 +41,4 @@ LLM、Query-Aware 与 reranker chat/completions 使用 `httpx.AsyncClient` SSE�
 
 真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`）：`报销期限多久？` 返回 `conflict_detected`（D01/D02 共 2 条引用），`公司有住房补贴吗？` 返回 `insufficient_evidence`（0 条引用），两者符合预期；`差旅报销需要什么材料？` 4 次真实运行均未返回 `completed`（3 次 `insufficient_evidence`、1 次 `conflict_detected`）：1 次内部已生成带 1 条有效引用的答案且 `verify` 通过、但模型第 3 步仍判 `insufficient_evidence` 导致最终降级，2 次卡在 `答案引用索引缺失、重复或无效`，1 次因 query-aware 抽出多候选冲突信息进入冲突状态。完整 pytest 为 65 passed、1 skipped；离线 MockTransport 覆盖重试、取消、client 生命周期与异步 ReAct 顺序。结论：真实整链已可执行、冲突与拒答行为符合预期，但 clear-case 的 `completed` 未稳定产出，在线答案准确率仍未验证；未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。
 
-冲突检测目前依赖 token/规则 heuristic，不能视为通用语义冲突识别。Provider 异常直接向 CLI 抛出，不重试，也不转换为 structured failed `Answer`。`max_steps` 正值校验及 evaluator 步数配置一致性仍有改进空间。
+冲突检测目前依赖 token/规则 heuristic，不能视为通用语义冲突识别。仅流式空闲超时与瞬时传输错误会重试（最多额外 3 次）；HTTP 4xx、schema/JSON 错误及模型协议违规不重试，异常直接向 CLI 抛出，也不转换为 structured failed `Answer`。`max_steps` 正值校验及 evaluator 步数配置一致性仍有改进空间。
