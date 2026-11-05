@@ -4,7 +4,7 @@
 从仓库任意目录执行：
 
 ```bash
-python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/tests -q
+python -m pytest tests/ -q
 ```
 
 Embedding 冒烟测试在未设置 `FRAMES_EMBEDDING_MODEL` 时会跳过；这不等同于向量模型集成验收。
@@ -32,7 +32,7 @@ python src/q3/cli.py --input examples/requests/missing.json
 - `live_conflict`（`报销期限多久？`）：抽取到 D01（30 天）与 D02（15 天）冲突条款，`status=conflict_detected`，2 条引用，不自动选边。
 - `live_missing`（`公司有住房补贴吗？`）：模型连续 5 次改写查询继续 `search`，达到 `max_steps` 上限后返回 `insufficient_evidence`，0 引用。
 
-三条 `react_steps` 路径不同，满足"模型根据不同工具结果调整动作"的运行记录要求。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 只回传 `status`/`evidence_count`，没有把已核验通过的答案与证据原文交给决策模型，导致模型在看不到证据时连续拒答；修复方式是让 observation 携带 `verified`、`answer_preview`、`evidence_quotes`，并在 instruction 中说明已核验证据应返回 `answer`。该修复未改动 `quote` 精确子串校验、`citation_indices` 校验或 `max_steps` 上限。真实模型输出仍有随机性，上述记录是单次实测结果，不代表在线准确率已系统评测。
+三条记录的可审计性说明：`live_react` 是模型在观察到已核验证据后由 `search` 调整为 `answer`，属模型依据工具结果调整动作的清晰证据；`live_missing` 中模型连续改写查询继续检索，到 `max_steps` 上限后由 `src/q3/agent.py` 强制返回 `insufficient_evidence`，触顶终止是代码行为而非模型选择；`live_conflict` 由冲突检测分支提前返回，`ask_user` 出现在 `verification.action` 而非 ReAct 决策步骤。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 只回传 `status`/`evidence_count`，没有把已核验通过的答案与证据原文交给决策模型，导致模型在看不到证据时连续拒答；修复方式是让 observation 携带 `verified`、`answer_preview`、`evidence_quotes`，并在 instruction 中说明已核验证据应返回 `answer`。该修复未改动 `quote` 精确子串校验、`citation_indices` 校验或 `max_steps` 上限。真实模型输出仍有随机性，上述记录是单次实测结果，不代表在线准确率已系统评测。
 
 ### 卷面"必须验收"六项对照
 
@@ -43,7 +43,7 @@ python src/q3/cli.py --input examples/requests/missing.json
 | 资料外问题 | `examples/results/live_missing.json`、`examples/traces/missing.json` | `insufficient_evidence`，0 引用，不编造 |
 | 改写后的相似问题 | `examples/traces/live_missing.json`、`examples/traces/missing.json`、`data/q3_eval_cases.json` | trace 记录多次查询改写；评测含「出差报销要准备哪些材料？」等改写题 |
 | 上下文追问 | `examples/requests/q3_clear.json` | 携带 `conversation_history`，`answer(question, history)` 把历史传入 planner/action/verify |
-| 工具失败 | `examples/requests/provider_failure.json`、`examples/provider_invalid_action_response.json`、`examples/traces/provider_failure.json` | 回放非法 action 响应，记录实际异常输出与失败边界 |
+| 工具失败 | `examples/requests/provider_failure.json`、`examples/provider_invalid_action_response.json`、`examples/traces/provider_failure.json` | 回放非法 action 响应，记录实际异常输出与失败边界。该组在首个 action 校验处即抛异常终止，因此 `trace` 为空——异常终止路径没有 ReAct 步骤，属如实披露的限制 |
 
 注：`live_conflict` 属于冲突早返回分支，本版已把外层 ReAct 决策步骤合并进返回 trace（`react_steps` 含 step 1 `search`），保证该路径同样可审计。
 

@@ -1,4 +1,9 @@
-# 第三题评测与当前状态
+# 第三题评测与当前状态（历史初始快照）
+
+> ⚠️ **本文档是项目早期的历史快照，已被 `README.md` 与 `docs/03-evaluation.md` 取代。**
+> 文中"Provider 联调状态"一节记录的是当时的失败尝试；后续 TLS 问题已定位为特定客户端
+> 的 CA/代理信任路径问题而非服务端证书过期，Provider 现已用 `httpx.AsyncClient` + SSE 真实跑通，
+> 三组真实运行记录见 `examples/{requests,traces,results}/live_*.json`。**现状与结论以 README 和 docs/03 为准。**
 
 当前分支：`question-3-enterprise-rag`。
 
@@ -14,7 +19,7 @@ python src/q3/cli.py --input examples/requests/q3_conflict.json
 
 ## 模型状态
 
-本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。默认运行使用确定性离线 Mock，仅验证流程；Mock 改写仅追加固定词语，不代表模型自主决策。真实 LLM planner/verifier 需显式传入 `--llm openai-compatible`，Provider reranker 需显式传入 `--reranker provider` 并配置相应环境变量。接口的模拟 HTTP 单测验证协议行为，不代表在线服务已联通。
+本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。默认运行使用确定性离线 Mock，仅验证流程；Mock 改写仅追加固定词语，不代表模型自主决策。真实 LLM planner/verifier 需显式传入 `--llm openai-compatible`，Provider reranker 需显式传入 `--reranker provider` 并配置相应环境变量。接口的模拟 HTTP 单测仅验证协议行为，当时不代表在线服务已联通（现已在真实 Provider 上跑通，见文末横幅说明）。
 
 ## 合成问答专项评测
 
@@ -32,16 +37,18 @@ python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/
 
 该专项覆盖题库外奥运会问题、住房补贴问题和明确可答问题，检查是否改写查询、是否遵守最大步数并在证据不足时拒答。最新结果为状态准确率 1.00、问题级文档检索准确率 1.00、步数上限遵守率 1.00。它验证本地 Mock 的有界流程，不代表真实 LLM 决策质量。
 
-## Provider 联调状态
+## Provider 联调状态（历史记录，已解决）
 
-已使用项目 `.env` 尝试真实 provider 联调，但本轮未将失败请求回退为 Mock：
+> 以下为本文件写作时的历史状态，**当前已解决**，保留以便追溯。
 
-- LLM provider：TLS 握手失败，服务端证书已过期；
-- Reranker provider：请求返回内容缺少预期的 `data` 数组，系统明确报 provider schema 错误；
-- 未关闭 TLS 证书校验，未把异常结果计入真实模型准确率；
-- 详细记录见 `data/q3_live_accuracy_report.json`。
+当时使用项目 `.env` 尝试真实 provider 联调失败，且未将失败请求回退为 Mock：
 
-因此当前可报告的准确率是离线 Mock + 本地知识库评测，不应表述为真实在线 LLM 准确率。修复 provider 证书和响应格式后，再单独重跑真实模型评测。
+- LLM provider：标准库 `urllib` 报 `CERTIFICATE_VERIFY_FAILED`，当时误判为服务端证书过期；
+- Reranker provider：响应缺少预期的 `data` 数组，系统明确报 provider schema 错误。
+
+后续用 OpenAI SDK、`requests`、`httpx` 对照实测，同一 endpoint 均可正常调用且默认 SSL context 能校验证书链，确认问题出在特定客户端的 CA/代理信任路径而非证书本身。网络层已统一为 `httpx.AsyncClient`：chat/completions 走 `stream=true` SSE 并聚合后解析，原生 reranker `/rerank` 走非流式 JSON 并兼容 `results`/`data`。TLS 校验始终开启。
+
+真实 Provider 现已跑通三段 CLI（`completed` / `conflict_detected` / `insufficient_evidence`），记录见 `examples/{requests,traces,results}/live_*.json`；最新评测口径以 `docs/03-evaluation.md` 与 `data/q3_live_accuracy_report.json` 为准。离线 Mock 指标仍不应表述为在线 LLM 准确率。
 
 ## FRAMES title-only gold-link proxy
 
@@ -65,4 +72,4 @@ python src/q3/evaluate_frames.py --method rrf --model $env:FRAMES_EMBEDDING_MODE
 
 Dense 在这四项汇总指标上高于 RRF；不应仅因混合方案更复杂就默认选择 RRF。完整 Recall@1/5/10、all-gold-hit@k、reasoning-type 分层和逐题明细见机器可读报告。
 
-**解释边界：**候选文本只有 Wikipedia 标题，无法取得文章正文是因为代理 TLS 验证失败。该 proxy 只评估标题匹配和 gold-link 排序；它不是全文证据检索、答案准确率、引用支持或端到端多跳 RAG 评测。候选集来自 test split 本身，也不构成独立开放语料检索基准。
+**解释边界：**候选文本只有 Wikipedia 标题；本评测未抓取文章正文（当时受代理网络环境限制，未归因为证书本身）。该 proxy 只评估标题匹配和 gold-link 排序；它不是全文证据检索、答案准确率、引用支持或端到端多跳 RAG 评测。候选集来自 test split 本身，也不构成独立开放语料检索基准。

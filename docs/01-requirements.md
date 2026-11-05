@@ -23,6 +23,6 @@
 3. 冲突或多版本返回冲突状态并请求确认。
 4. 每步 trace 包含 `step`、`action`、`query`、`tool_parameters`、`result_summary`、`next_action_reason`。
 5. ReAct 步数受 `max_steps` 限制；不泄露 key。
-6. `python -m pytest C:/Users/ASUS/Desktop/小影笔试/agent-code/tests -q` 通过（Embedding 冒烟可因未配置本地模型而跳过）。
+6. `python -m pytest tests/ -q` 通过（Embedding 冒烟可因未配置本地模型而跳过）。
 
-第一题素材排期代码仅保留在历史提交，不属于本次第三题交付主体。
+第一题素材排期代码仍以 `src/agent.py`、`src/api.py`、`src/cli.py`、`data/assets.json`、`data/rules.json`、`data/schedule.json`、`tests/test_agent.py`、`tests/test_persistence.py` 留在当前仓库树，不属于第三题验收主体；pytest 收集 66 项，其中 10 项为上述历史用例、56 项属第三题（1 项 embedding 冒烟跳过），故显示 65 passed / 1 skipped。

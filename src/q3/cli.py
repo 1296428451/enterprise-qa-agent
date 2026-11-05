@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -31,8 +32,8 @@ def save_run(name: str, args, question: str, payload: dict, result: dict) -> Non
     Only CLI arguments are recorded: no environment variable values, API keys,
     endpoint URLs or hostnames are written to disk.
     """
-    if not name.replace("-", "_").replace("_", "").isalnum():
-        raise SystemExit("--save-run NAME must contain only letters, digits, '-' or '_'")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", name):
+        raise SystemExit("--save-run NAME must match [A-Za-z0-9_-]+")
     base = ROOT / "examples"
     command = "python src/q3/cli.py " + " ".join([
         "--question", json.dumps(question, ensure_ascii=False),
