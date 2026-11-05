@@ -1,6 +1,6 @@
 # 企业知识问答 Agent（第三题）
 
-本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含有界 ReAct 检索循环、BM25 与语义向量混合召回、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
+本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含有界 ReAct 检索循环、BM25 与 mock token-overlap semantic signal 混合候选、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。默认 CLI 未创建或注入 FAISS semantic retriever；FAISS 是可选索引工具，不在 CLI 在线主链。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
 
 ## 环境与测试
 Python 3.12 环境建议使用项目已配置的 `py312`。先安装依赖：
@@ -35,7 +35,7 @@ python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebui
 python src/q3/manage.py --list --db data/knowledge.db
 ```
 
-默认使用确定性的离线 Mock，只用于验证检索流程、控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。先在当前 shell 配置相应的 `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_API_KEY` 和/或 `RERANK_BASE_URL`、`RERANK_MODEL`、`RERANK_API_KEY`。密钥只从环境变量读取，不写入项目文件。真实 provider 请求失败或响应格式不正确时会直接报错，不会静默降级到 Mock。当前联调未能验证在线自主决策或准确率：LLM endpoint TLS 证书已过期，reranker 响应缺少预期的 `data` 数组。
+默认语义候选由 `MockSemanticRetriever` 以 token overlap 计算；这不是实际 dense embedding 或 FAISS 检索。当前 CLI 没有创建/注入 FAISS semantic retriever。FAISS 仅作为可选索引/评测工具，不在 CLI 在线问答主链。BM25 与 mock token-overlap 共同提供离线候选信号。默认使用确定性离线 Mock 验证检索控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。真实 provider 请求失败或响应格式不正确时会直接报错，不会静默降级到 Mock。当前联调的 LLM endpoint TLS 证书过期，reranker 响应缺少预期 `data` 数组。
 
 ```bash
 python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
@@ -79,6 +79,7 @@ python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 
 - 请求：`examples/requests/normal.json`、`examples/requests/missing.json`、`examples/requests/provider_failure.json`
 - 输出与 trace：`examples/traces/normal.json`、`examples/traces/missing.json`、`examples/traces/provider_failure.json`
+- provider schema 失败回放：`python src/q3/cli.py --input examples/requests/provider_failure.json --provider-response-fixture examples/provider_invalid_action_response.json`
 
 示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 仅保留在仓库历史；当前可运行主项目和验收材料均为第三题。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
 

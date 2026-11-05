@@ -7,7 +7,7 @@
   "trace": [
     {"step": 1, "action": "search", "query": "公司是否提供住房补贴？", "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "insufficient_evidence", "next_action_reason": "开始检索"},
     {"step": 2, "action": "search", "query": "公司是否提供住房补贴？ 相关制度", "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "insufficient_evidence", "next_action_reason": "首次检索无证据，改写查询"},
-    {"step": 3, "action": "insufficient_evidence", "query": null, "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "insufficient_evidence", "next_action_reason": "改写查询后仍无证据"}
+    {"step": 3, "action": "insufficient_evidence", "query": null, "tool_parameters": {"candidate_limit": 200, "rerank_top": 20}, "result_summary": "", "next_action_reason": "改写查询后仍无证据"}
   ],
-  "note": "固定离线 mock 行为的协议示例；与 normal trace 的观察不同，下一动作从 answer 变为 query rewrite，最终拒答。非在线真实模型输出或决策。"
+  "note": "CLI 实际输出字段摘要。与 normal 路径观察不同，下一动作由 answer 变为 query rewrite/拒答；固定离线 mock 行为，非在线真实模型决策。"
 }

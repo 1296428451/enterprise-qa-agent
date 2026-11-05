@@ -81,11 +81,18 @@ class EnterpriseQA:
                           {"verified": False})
         generated = self.llm.answer_from_evidence(question, answer_input)
         answer_text = generated.get("answer", "")
-        cited_indices = generated.get("citation_indices", [])
-        valid_citations = [extracted_citations[i - 1] for i in cited_indices
-                           if 1 <= i <= len(extracted_citations)]
-        if not valid_citations:
-            valid_citations = extracted_citations
+        cited_indices = generated.get("citation_indices")
+        if (not isinstance(cited_indices, list) or not cited_indices
+                or any(type(index) is not int or index < 1 or index > len(extracted_citations)
+                       for index in cited_indices)
+                or len(set(cited_indices)) != len(cited_indices)):
+            trace.append({"action": "answer_from_evidence", "result": "invalid citation indices"})
+            return Answer("insufficient_evidence", None, [], ["答案引用索引缺失、重复或无效"], trace,
+                          {"candidate_count": len(candidates), "selected_count": len(evidence),
+                           "extracted_evidence_count": extraction.candidates_with_evidence,
+                           "answer_input": answer_input},
+                          {"verified": False, "action": "ask_user"})
+        valid_citations = [extracted_citations[index - 1] for index in cited_indices]
         trace.append({"action": "answer_from_evidence",
                       "result": f"generated answer with {len(valid_citations)} citations"})
         verification = self.llm.verify(question, answer_text, valid_citations)

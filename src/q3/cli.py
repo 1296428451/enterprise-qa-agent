@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--llm", choices=("mock", "openai-compatible"), default=CONFIG["runtime"]["llm"])
     parser.add_argument("--reranker", choices=("mock", "provider"), default=CONFIG["runtime"]["reranker"])
     parser.add_argument("--query-aware", choices=("mock", "provider"), default=CONFIG["runtime"]["query_aware_mode"])
+    parser.add_argument("--provider-response-fixture", type=Path, help="用本地 HTTP response JSON fixture 验证 provider 协议错误")
     parser.add_argument("--admin-import", action="store_true", help="批量导入知识库文档")
     parser.add_argument("--db", type=Path, default=ROOT / CONFIG["database"])
     parser.add_argument("--rebuild-index", action="store_true")
@@ -46,7 +47,15 @@ def main():
     question = payload["question"]
     config = payload.get("config", {})
     chunks = load_chunks(args.db if args.db.exists() else ROOT / "data" / "q3_documents.json")
-    llm = OpenAICompatibleLLM() if args.llm == "openai-compatible" else MockLLM()
+    fixture = json.loads(args.provider_response_fixture.read_text(encoding="utf-8")) if args.provider_response_fixture else None
+    if fixture is not None and args.llm != "openai-compatible":
+        parser.error("--provider-response-fixture requires --llm openai-compatible")
+    llm = OpenAICompatibleLLM(
+        base_url="https://provider.example.invalid/v1",
+        model="fixture-model",
+        api_key="fixture-key",
+        response_fixture=fixture,
+    ) if fixture is not None else OpenAICompatibleLLM() if args.llm == "openai-compatible" else MockLLM()
     reranker = ProviderReranker.from_environment() if args.reranker == "provider" else MockJevReranker()
     extractor = OpenAICompatibleQueryAwareExtractor.from_environment(
         max_tokens=int(CONFIG["query_aware"]["max_tokens"])

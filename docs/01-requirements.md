@@ -8,7 +8,7 @@
 
 ## 范围
 - 文档版本化导入与 SQLite 知识库管理。
-- BM25/语义候选的混合召回、Mock JEV 重排、可选 provider reranker。
+- BM25 与 mock token-overlap semantic signal 混合候选、Mock JEV 重排、可选 provider reranker。默认 CLI 未注入实际 dense/FAISS semantic retriever；FAISS 不在在线问答主链。
 - query-aware 证据片段抽取、引用与冲突/多版本核验。
 - ReAct 动作：`search`、`answer`、`ask_user`、`insufficient_evidence`；步数有上限。
 - 离线确定性 Mock 运行、OpenAI-compatible provider 协议适配、CLI 与测试。

@@ -1,9 +1,5 @@
 {
   "question": "差旅报销需要什么材料？",
   "config": {"max_steps": 5},
-  "mode": {
-    "llm": "openai-compatible",
-    "reranker": "mock",
-    "provider_endpoint": "${OPENAI_BASE_URL}"
-  }
+  "mode": {"llm": "openai-compatible", "reranker": "mock"}
 }

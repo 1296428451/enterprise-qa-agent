@@ -121,6 +121,23 @@ def test_provider_reranker_builds_v1_endpoint():
     assert reranker.base_url == "https://example.invalid/v1/rerank"
 
 
+@pytest.mark.parametrize("citation_indices", [None, [], [0], [2], [1, 1], [True], ["1"]])
+def test_invalid_or_missing_citation_indices_abstain_without_fallback(chunks, citation_indices):
+    class InvalidCitationLLM(MockLLM):
+        def answer_from_evidence(self, question, evidence_input):
+            return {"answer": "未被有效引用的答案", "citation_indices": citation_indices}
+
+        def verify(self, question, answer, citations):
+            raise AssertionError("verification must not accept invalid citations")
+
+    result = EnterpriseQA(chunks, llm=InvalidCitationLLM()).answer("差旅报销需要什么材料？")
+    assert result.status == "insufficient_evidence"
+    assert result.answer is None
+    assert result.citations == []
+    assert result.gaps == ["答案引用索引缺失、重复或无效"]
+    assert result.verification["verified"] is False
+
+
 def test_openai_verifier_can_veto_answer_and_preserve_claims(chunks):
     class VetoLLM(MockLLM):
         def verify(self, question, answer, citations):

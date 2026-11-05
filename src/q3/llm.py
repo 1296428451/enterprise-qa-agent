@@ -46,28 +46,33 @@ class MockLLM:
 
 
 class OpenAICompatibleLLM:
-    def __init__(self, base_url: str | None = None, model: str | None = None, api_key: str | None = None):
+    def __init__(self, base_url: str | None = None, model: str | None = None, api_key: str | None = None,
+                 response_fixture: dict | None = None):
         self.base_url = (base_url or os.environ["OPENAI_BASE_URL"]).rstrip("/")
         self.model = model or os.environ["OPENAI_MODEL"]
         self.api_key = api_key or os.environ["OPENAI_API_KEY"]
+        self.response_fixture = response_fixture
         self.chat_completions_url = self.base_url if self.base_url.endswith("/chat/completions") else self.base_url + "/chat/completions"
 
     def _complete_json(self, instruction: str, payload: dict) -> dict:
-        body = json.dumps({
-            "model": self.model,
-            "temperature": 0,
-            "messages": [
-                {"role": "system", "content": instruction},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-            ],
-        }).encode("utf-8")
-        request = Request(
-            self.chat_completions_url,
-            data=body,
-            headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.api_key},
-        )
-        with urlopen(request, timeout=60) as response:
-            result = json.loads(response.read().decode("utf-8"))
+        if self.response_fixture is not None:
+            result = self.response_fixture
+        else:
+            body = json.dumps({
+                "model": self.model,
+                "temperature": 0,
+                "messages": [
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                ],
+            }).encode("utf-8")
+            request = Request(
+                self.chat_completions_url,
+                data=body,
+                headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.api_key},
+            )
+            with urlopen(request, timeout=60) as response:
+                result = json.loads(response.read().decode("utf-8"))
         content = result["choices"][0]["message"]["content"]
         parsed = json.loads(content)
         if not isinstance(parsed, dict):

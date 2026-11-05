@@ -1,0 +1,9 @@
+{
+  "choices": [
+    {
+      "message": {
+        "content": "{\"action\":\"unknown\",\"reason\":\"invalid action fixture\"}"
+      }
+    }
+  ]
+}

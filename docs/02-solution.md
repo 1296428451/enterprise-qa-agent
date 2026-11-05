@@ -1,7 +1,7 @@
 # 第三题方案：企业知识问答 Agent
 
 ## 调用流程
-请求解析 -> ReAct planner 决定检索动作 -> 混合召回（BM25/可选语义） -> 候选合并 -> 重排 -> query-aware 证据抽取 -> 证据选择 -> 版本/内容冲突检查 -> 基于引用生成答案 -> 引用核验 -> 返回结果与 trace。
+请求解析 -> ReAct planner 决定检索动作 -> 混合候选（BM25 + mock token-overlap semantic signal） -> 候选合并 -> 重排 -> query-aware 证据抽取 -> 证据选择 -> 版本/内容冲突检查 -> 基于引用生成答案 -> 引用核验 -> 返回结果与 trace。
 
 ```text
 Question
@@ -14,7 +14,7 @@ Question
 ```
 
 ## ReAct 与运行模式
-循环由 `src/q3/agent.py` 实现，默认最多 5 步，可通过配置、输入 `config.max_steps` 或 CLI 参数覆盖。每步 trace 记录 `step`、`action`、`query`、`tool_parameters`、`result_summary`、`next_action_reason`。工具观察中的证据数、冲突和改写状态会影响下一动作：有证据可进入回答，首次无证据触发改写，改写后仍无证据则拒答。
+循环由 `src/q3/agent.py` 实现，默认最多 5 步，可通过配置、输入 `config.max_steps` 或 CLI 参数覆盖。每步 trace 记录 `step`、`action`、`query`、`tool_parameters`、`result_summary`、`next_action_reason`。工具观察中的证据数、冲突和改写状态会影响下一动作：有证据可进入回答，首次无证据触发改写，改写后仍无证据则拒答。默认候选信号为 BM25 + mock token-overlap semantic signal；CLI 未创建或注入实际 dense/FAISS retriever。FAISS 是可选索引工具，不在在线问答主链。
 
 默认离线 Mock 是确定性规则（首次无证据追加“相关制度”），仅验证协议、流程和边界。`--llm openai-compatible` 才请求外部 provider。测试中的模拟 provider 也只验证协议行为，不是在线真实模型决策。当前真实联调受 LLM endpoint TLS 证书过期阻断，reranker 返回 schema 缺少 `data` 阻断；没有真实 provider 成功结果可报告。
 
