@@ -194,6 +194,9 @@ def scan_worktree(candidates: list[Candidate]) -> list[tuple]:
         for candidate in candidates:
             if candidate.is_credential and candidate.value in content:
                 hits.append((candidate.tag, candidate.key, relative))
+        for label, pattern in GENERIC_PATTERNS:
+            if pattern.search(content):
+                hits.append((label.decode(), relative, "worktree file"))
     return hits
 
 
@@ -241,11 +244,15 @@ def main() -> int:
 
     candidates = load_candidates()
     credentials = [c for c in candidates if c.is_credential]
-    if not candidates:
-        print("ERROR: no configuration values found; cannot verify credentials.")
+    if not (REPO / ".git").exists():
+        print("ERROR: not a Git working tree; history cannot be inspected.")
         return 2
-    print(f"Loaded {len(candidates)} candidate values "
-          f"({len(credentials)} credential-type); values are never printed.")
+    if candidates:
+        print(f"Loaded {len(candidates)} candidate values "
+              f"({len(credentials)} credential-type); values are never printed.")
+    else:
+        print("INFO: no local .env / provider.txt found, so value-based matching is "
+              "skipped; falling back to generic credential-pattern scanning only.")
 
     bad: list[tuple] = []
     info: list[tuple] = []

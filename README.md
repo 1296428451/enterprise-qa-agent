@@ -3,7 +3,7 @@
 本分支实现笔试第三题：基于本地企业文档的知识问答 CLI，包含有界 ReAct 检索循环、BM25 与 mock token-overlap semantic signal 混合候选、可配置 reranker adapter、动态证据选择、引用核验及版本冲突追问。默认 CLI 未创建或注入 FAISS semantic retriever；FAISS 是可选索引工具，不在 CLI 在线主链。当前默认离线运行，使用确定性 Mock，不会默认请求外部模型服务。
 
 ## 环境与测试
-Python 3.12 环境建议使用项目已配置的 `py312`。当前全量验收结果：68 passed，1 skipped（未配置本地 embedding 模型的 smoke test）。先安装依赖：
+本项目在 Python 3.12（conda env `py312`）下完成全部验收；代码未使用 3.12 专属语法，理论上 3.10+ 均可运行，但只在 3.12 上逐一验证过。当前全量验收结果：68 passed，1 skipped（未配置本地 embedding 模型的 smoke test）。先安装依赖：
 
 ```bash
 python -m pip install -r requirements.txt
@@ -32,8 +32,10 @@ PowerShell 可用 `$env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"` 设�
 ```bash
 python src/q3/cli.py --question "报销期限多久？"
 python src/q3/cli.py --input examples/requests/q3_conflict.json
-python src/q3/manage.py --input path/to/docs.json（请替换为实际文件路径） --db data/knowledge.db --rebuild-index
 python src/q3/manage.py --list --db data/knowledge.db
+
+# 导入新文档并重建文本索引；把 path/to/docs.json 换成实际文件路径
+python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebuild-index
 ```
 
 默认语义候选由 `MockSemanticRetriever` 以 token overlap 计算；这不是实际 dense embedding 或 FAISS 检索。当前 CLI 没有创建/注入 FAISS semantic retriever。FAISS 仅作为可选索引/评测工具，不在 CLI 在线问答主链。BM25 与 mock token-overlap 共同提供离线候选信号。默认使用确定性离线 Mock 验证检索控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。当前 Provider 网络适配使用 `httpx.AsyncClient`，TLS 证书验证开启并配置显式超时。`EnterpriseQA.answer_async()` 可在已有 event loop 中调用；同步 CLI 的 `answer()` 仅作为兼容包装，在无运行中 event loop 时运行异步流程。OpenAI-compatible LLM 和 Query-Aware 均调用 `/chat/completions`；reranker 原生接口支持 `results`/`data`，并保留 chat `scores` 响应模式。
@@ -42,7 +44,9 @@ python src/q3/manage.py --list --db data/knowledge.db
 python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
 ```
 
-新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 仅重建 SQLite 文本索引，不代表 FAISS 向量索引刷新。SQLite 与向量文件属于本地运行状态，不应提交。
+新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 仅重建 SQLite 文本索引，不代表 FAISS 向量索引刷新。
+
+`data/knowledge.db` 与 `data/q3_vectors.faiss` 是随仓库提交的只读数据快照，保证开箱即可复跑上面所有命令；重新导入或重建索引产生的变更属于本地运行态，提交前请先备份或改用副本，例如 `python src/q3/manage.py --input docs.json --db /tmp/kb.db --rebuild-index`，以免污染快照。
 
 ## ReAct 检索循环
 
@@ -88,12 +92,12 @@ python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 
 ### 一条命令跑通真实 Provider 并落盘
 
-`--save-run NAME` 会把请求、ReAct 过程、最终结果分别写入 `examples/requests/NAME.json`、`examples/traces/NAME.json`、`examples/results/NAME.json`，同时在标准错误输出打印从 ReAct 决策到模型回答的完整过程，标准输出仍是原有 JSON：
+`--save-run NAME` 会把请求、ReAct 过程、最终结果分别写入 `examples/requests/NAME.json`、`examples/traces/NAME.json`、`examples/results/NAME.json`，同时在标准错误输出打印从 ReAct 决策到模型回答的完整过程，标准输出仍是原有 JSON。同名文件会被覆盖（覆盖时标准错误会明确提示），仓库内的 `live_*` 是已提交的实测记录，复跑时建议换一个名字，例如 `my_run`：
 
 ```bash
 python src/q3/cli.py --question "差旅报销需要什么材料？" \
   --llm openai-compatible --reranker provider --query-aware provider \
-  --max-steps 5 --save-run live_react
+  --max-steps 5 --save-run my_run
 ```
 
 落盘文件只记录 CLI 参数，不写任何环境变量值、API Key、endpoint 或主机名。已提交三条真实 Provider 运行记录：

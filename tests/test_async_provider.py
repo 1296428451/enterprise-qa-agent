@@ -14,6 +14,8 @@ from src.q3.llm import OpenAICompatibleLLM
 from src.q3.models import Chunk, ScoredChunk
 from src.q3.provider_reranker import ProviderReranker
 
+DOCUMENTS = Path(__file__).resolve().parents[1] / "data" / "q3_documents.json"
+
 
 def _event(text):
     return ("data: " + json.dumps({"choices": [{"delta": {"content": text}}]}) + "\n\n").encode()
@@ -126,7 +128,7 @@ def test_post_json_owns_closes_but_does_not_close_injected_client():
 
 
 def test_async_rerank_then_qa_answer_verify_order_and_loop_await():
-    chunks = load_chunks("C:/Users/ASUS/Desktop/小影笔试/agent-code/data/q3_documents.json")
+    chunks = load_chunks(DOCUMENTS)
     order = []
 
     class OrderedLLM:

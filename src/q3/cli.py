@@ -77,12 +77,20 @@ def save_run(name: str, args, question: str, payload: dict, result: dict) -> Non
         "retrieval": result.get("retrieval", {}),
         "verification": result.get("verification", {}),
     }
-    _write_json(base / "requests" / f"{name}.json", request_doc)
-    _write_json(base / "traces" / f"{name}.json", trace_doc)
-    _write_json(base / "results" / f"{name}.json", result_doc)
-    print(f"[save-run] examples/requests/{name}.json", file=sys.stderr)
-    print(f"[save-run] examples/traces/{name}.json", file=sys.stderr)
-    print(f"[save-run] examples/results/{name}.json", file=sys.stderr)
+    targets = (
+        (base / "requests" / f"{name}.json", request_doc),
+        (base / "traces" / f"{name}.json", trace_doc),
+        (base / "results" / f"{name}.json", result_doc),
+    )
+    for path, document in targets:
+        if path.exists():
+            # Reusing a name silently replaced the committed run record once;
+            # say so out loud instead of overwriting evidence without a trace.
+            print(f"[save-run] overwriting existing {path.relative_to(ROOT)}",
+                  file=sys.stderr)
+        _write_json(path, document)
+    for path, _ in targets:
+        print(f"[save-run] {path.relative_to(ROOT)}", file=sys.stderr)
 
 
 def print_react_summary(question: str, result: dict) -> None:

@@ -21,3 +21,9 @@ id_ed25519
 data/drafts.json
 data/*.lock
 data/external/frames-benchmark/.cache/
+
+# SQLite runtime artifacts. The committed data/knowledge.db snapshot stays
+# tracked; only the transient sidecar files are ignored.
+*.db-journal
+*.db-wal
+*.db-shm
