@@ -69,7 +69,7 @@ class EnterpriseQA:
         extracted_citations = [
             {"document_id": e.source_id, "chunk_id": e.chunk_id,
              "version": next((c.chunk.version for c in top_k if c.chunk.chunk_id == e.chunk_id), ""),
-             "quote": e.quote, "key_info": e.key_info}
+             "quote": e.quote, "key_info": e.key_info, "scope": e.scope}
             for e in extraction.evidence if e.relevance != "none" and e.quote
         ]
         if not extracted_citations:
@@ -89,15 +89,29 @@ class EnterpriseQA:
         model_gap = generated.get("gap") if isinstance(generated.get("gap"), str) else ""
         cited_indices = generated.get("citation_indices")
         if not answer_text.strip():
-            # The model declining to answer is not a citation-format violation;
-            # keep the two cases apart so the gap text stays diagnosable.
-            trace.append({"action": "answer_from_evidence", "result": "model returned an empty answer"})
-            return Answer("insufficient_evidence", None, [],
-                          [model_gap or "模型判断现有证据不足以回答该问题"], trace,
-                          {"candidate_count": len(candidates), "selected_count": len(evidence),
-                           "extracted_evidence_count": extraction.candidates_with_evidence,
-                           "answer_input": answer_input},
-                          {"verified": False, "action": "ask_user"})
+            # A declined answer is not a citation-format violation. If there is
+            # relevant evidence, still return a result: summarise the closest
+            # clauses and state what is not covered, instead of a bare refusal.
+            if not extracted_citations:
+                trace.append({"action": "answer_from_evidence",
+                              "result": "model returned an empty answer; no usable evidence"})
+                return Answer("insufficient_evidence", None, [],
+                              [model_gap or "模型判断现有证据不足以回答该问题"], trace,
+                              {"candidate_count": len(candidates), "selected_count": len(evidence),
+                               "extracted_evidence_count": extraction.candidates_with_evidence,
+                               "answer_input": answer_input},
+                              {"verified": False, "action": "ask_user"})
+            shown = extracted_citations[:3]
+            model_gap = model_gap or "现有资料只覆盖问题的一部分，其余要求未在知识库中查到"
+            summary = "根据知识库中最接近的条款：" + "；".join(
+                f"{item['quote']}（适用于{item['scope']}）[{index}]"
+                if item.get("scope") and item["scope"] not in item["quote"]
+                else f"{item['quote']}[{index}]"
+                for index, item in enumerate(shown, 1))
+            answer_text = f"{summary}。未覆盖部分：{model_gap}"
+            cited_indices = list(range(1, len(shown) + 1))
+            trace.append({"action": "answer_from_evidence",
+                          "result": "model declined; summarised the closest evidence with a gap"})
         if (not isinstance(cited_indices, list) or not cited_indices
                 or any(type(index) is not int or index < 1 or index > len(extracted_citations) for index in cited_indices)
                 or len(set(cited_indices)) != len(cited_indices)):

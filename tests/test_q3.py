@@ -115,17 +115,19 @@ class _ScriptedAnswerLLM(MockLLM):
         return dict(self.payload)
 
 
-def test_empty_model_answer_reports_insufficiency_not_index_error(chunks):
+def test_declined_answer_still_returns_a_summary_with_gap(chunks):
+    """A model that declines must not leave the caller with a null answer."""
     gap = "制度未规定审批与到账周期"
     llm = _ScriptedAnswerLLM({"answer": "", "citation_indices": [], "conflict": False, "gap": gap})
     result = EnterpriseQA(chunks, llm=llm, reranker=_both_clause_reranker(chunks)).answer(
         "研发部门有财务要报销，需要多长时间才可以？")
-    assert result.status == "insufficient_evidence"
-    assert result.answer is None and result.citations == []
+    assert result.status == "completed"
+    assert result.answer and "15 天" in result.answer      # closest clause is quoted
+    assert gap in result.answer                             # the missing part is stated
+    assert result.citations                                 # still traceable
     assert result.gaps == [gap]
-    assert "引用索引" not in " ".join(result.gaps)
-    actions = [(step.get("action"), step.get("result")) for step in result.trace]
-    assert ("answer_from_evidence", "model returned an empty answer") in actions
+    results = [step.get("result") or "" for step in result.trace if step.get("action") == "answer_from_evidence"]
+    assert any("summarised the closest evidence" in text for text in results)
 
 
 def test_partial_answer_keeps_model_gap(chunks):

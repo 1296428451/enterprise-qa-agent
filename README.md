@@ -59,7 +59,7 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 ## ReAct 检索循环
 
-循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。每轮根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。默认 Mock 的 action 与查询改写由确定性规则生成，首次无证据时固定追加“相关制度”；只有 `--llm openai-compatible` 才启用 provider 控制的 action 选择。搜索会执行混合召回、重排和 query-aware 证据抽取，证据里带上条文声明的适用范围（`Scope`）；该用哪条、以及条款是否真的矛盾，由作答那一次请求一并判断——判为矛盾时模型返回 `conflict=true`，系统据此返回 `conflict_detected` 并请用户确认。同一文档多版本始终由代码判定并请求确认，达到步数上限则停止。
+循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。每轮根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。默认 Mock 的 action 与查询改写由确定性规则生成，首次无证据时固定追加“相关制度”；只有 `--llm openai-compatible` 才启用 provider 控制的 action 选择。搜索会执行混合召回、重排和 query-aware 证据抽取，证据里带上条文声明的适用范围（`Scope`）；该用哪条、以及条款是否真的矛盾，由作答那一次请求一并判断——判为矛盾时模型返回 `conflict=true`，系统据此返回 `conflict_detected` 并请用户确认。同一文档多版本始终由代码判定并请求确认，达到步数上限则停止。模型判定证据不足时不会只回一句拒绝：只要还存在可用证据，就用最接近的条款合成摘要、标注适用范围，并在 `gaps` 里说明未覆盖部分；只有完全无证据时才返回 `insufficient_evidence` 且不带答案。
 
 `tests/test_q3.py` 中包含模拟 provider 的集成测试，验证 provider 决策下 `search -> observation -> rewritten search -> answer` 流程；它不是在线真实模型测试。当前 Provider chat/completions 使用 `httpx.AsyncClient` 的 `stream=true` SSE：聚合 `delta.content` 后解析 JSON；相邻数据块空闲超过 30 秒时最多额外重试 3 次（首次 + 3 次重试，共 4 次）并丢弃 partial；HTTP 4xx、JSON、schema 错误不重试；`CancelledError` 原样传播；TLS 校验始终开启，禁止关闭验证。
 

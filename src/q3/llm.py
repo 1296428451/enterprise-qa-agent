@@ -213,9 +213,11 @@ class OpenAICompatibleLLM:
             "evidence covers with something it does not, answer the covered part with citations and "
             "put the missing part in gap. If the clauses still contradict each other for this "
             "question, do not pick a side: return an empty answer, an empty citation_indices array "
-            "and conflict=true. If the evidence covers nothing, return an empty answer with "
-            "conflict=false and describe what is missing in gap. Return strict JSON with string "
-            "answer, integer-array citation_indices, boolean conflict and string gap.",
+            "and conflict=true. Whenever any evidence is relevant you MUST return a non-empty "
+            "answer: state what the evidence does support with citations, even if that is only part "
+            "of what was asked, and put everything it does not cover into gap. Only return an empty "
+            "answer when no evidence is relevant at all. Return strict JSON with string answer, "
+            "integer-array citation_indices, boolean conflict and string gap.",
             {"question": question, "evidence": evidence_input},
         )
         answer = result.get("answer")
