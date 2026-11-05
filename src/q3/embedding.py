@@ -1,7 +1,43 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Iterable
+
+
+def dump_chunk_ids(metadata_path: str | Path, chunk_ids: list[str]) -> None:
+    """Write the vector metadata sidecar as real JSON."""
+    target = Path(metadata_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps({"chunk_ids": list(chunk_ids)}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_chunk_ids(metadata_path: str | Path) -> list[str]:
+    """Read the vector metadata sidecar.
+
+    Accepts the current ``{"chunk_ids": [...]}`` layout, a bare JSON array, and
+    the newline-separated text written by earlier revisions.
+    """
+    raw = Path(metadata_path).read_text(encoding="utf-8")
+    if not raw.strip():
+        return []
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        # Blank lines would shift every later id out of alignment with the
+        # index, so drop them here instead of trusting the file's layout.
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+    if isinstance(payload, list):
+        return [str(item) for item in payload]
+    if isinstance(payload, dict):
+        chunk_ids = payload.get("chunk_ids", [])
+        if not isinstance(chunk_ids, list):
+            raise ValueError("chunk_ids must be a list")
+        return [str(item) for item in chunk_ids]
+    raise ValueError("vector metadata must be a JSON object or array")
 
 
 class LocalEmbedder:
@@ -50,13 +86,13 @@ class FaissIndex:
     def save(self, index_path: str | Path, metadata_path: str | Path) -> None:
         import faiss
         faiss.write_index(self.index, str(index_path))
-        Path(metadata_path).write_text("\n".join(self.chunk_ids), encoding="utf-8")
+        dump_chunk_ids(metadata_path, self.chunk_ids)
 
     @classmethod
     def load(cls, index_path: str | Path, metadata_path: str | Path):
         import faiss
         index = faiss.read_index(str(index_path))
-        chunk_ids = Path(metadata_path).read_text(encoding="utf-8").splitlines()
+        chunk_ids = load_chunk_ids(metadata_path)
         return cls(index, chunk_ids)
 
     def search(self, query: str, embedder: LocalEmbedder, chunks_by_id: dict[str, object], limit: int = 50):
