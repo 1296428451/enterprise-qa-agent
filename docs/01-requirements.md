@@ -15,7 +15,7 @@
 - 示例请求、原始输出/trace、离线评测报告。
 
 ## 非范围与边界
-不承诺在线真实模型准确率，不包含真实生产凭证、真实企业数据、自动发布、生产级鉴权/并发治理，也不把 Mock 决策写成真实模型决策。当前联调的 LLM provider 因 TLS 证书过期未成功，reranker provider 返回缺少预期 `data` 数组；两者均在报告中作为阻断记录。
+不承诺在线真实模型准确率，不包含真实生产凭证、真实企业数据、自动发布、生产级鉴权/并发治理，也不把 Mock 决策写成真实模型决策。Provider 网络层使用 `httpx.AsyncClient`，chat/completions 采用 `stream=true` SSE 并具备 30 秒 idle 超时重试（最多额外 3 次、丢弃 partial），TLS 校验始终开启。真实 smoke 中 SSE chat 与原生 reranker 调用成功，此前"TLS 证书过期"的阻断已排除；但真实 Provider 驱动的 Agent 端到端问答因模型首步决策未遵循 ReAct 协议尚未跑通，不把组件 smoke 等同于在线准确率或 Agent E2E 验证。
 
 ## 验收标准
 1. 有证据问题返回 `completed`、答案和有效引用。

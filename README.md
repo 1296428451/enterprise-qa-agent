@@ -47,7 +47,9 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。每轮根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。默认 Mock 的 action 与查询改写由确定性规则生成，首次无证据时固定追加“相关制度”；只有 `--llm openai-compatible` 才启用 provider 控制的 action 选择。搜索会执行混合召回、重排和 query-aware 证据抽取；冲突或多版本证据请求用户确认，达到步数上限则停止。
 
-`test_q3.py` 中包含模拟 provider 的集成测试，验证 provider 决策下 `search -> observation -> rewritten search -> answer` 流程；它不是在线真实模型测试。当前 Provider chat/completions 使用 `httpx.AsyncClient` 的 `stream=true` SSE：聚合 `delta.content` 后解析 JSON，相邻数据块空闲超过 30 秒时最多额外重试 3 次并丢弃 partial，4xx/schema/JSON 错误不重试，TLS 校验保持开启。本版本 SSE 改造仅完成 MockTransport 离线验收，未执行真实 HTTPX provider smoke；此前非流式或其他 SDK/requests 成功不等价于本版本 SSE 真实调用成功。
+`test_q3.py` 中包含模拟 provider 的集成测试，验证 provider 决策下 `search -> observation -> rewritten search -> answer` 流程；它不是在线真实模型测试。当前 Provider chat/completions 使用 `httpx.AsyncClient` 的 `stream=true` SSE：聚合 `delta.content` 后解析 JSON；相邻数据块空闲超过 30 秒时最多额外重试 3 次（首次 + 3 次重试，共 4 次）并丢弃 partial；HTTP 4xx、JSON、schema 错误不重试；`CancelledError` 原样传播；TLS 校验始终开启，禁止关闭验证。
+
+真实 SSE smoke（使用本地 `.env`，标准 TLS 校验）：`post_chat_stream` 成功收到 SSE 数据块、聚合 `delta.content` 并解析出 JSON 对象；`ProviderReranker.score_async` 成功对两个候选返回分数（约 `0.9992`、`0.0010`）。此前"服务端 TLS 证书过期"的阻断已排除——默认 SSL context 可正常校验证书链，OpenAI SDK、requests、urllib 均可成功调用。CLI 真实 Agent 整链（`--llm openai-compatible --reranker provider --query-aware provider`）尚未返回 `completed`/`insufficient_evidence`：真实模型首个 ReAct 决策未遵循"首步必须为 search"的协议而抛出 `ValueError`，属于模型输出行为问题，并非 TLS/网络/SSE 错误；SSE 请求本身成功。因此不声称真实 Provider 驱动的 Agent E2E 或在线准确率已验证。
 
 ```bash
 python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json

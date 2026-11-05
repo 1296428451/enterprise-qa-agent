@@ -16,7 +16,7 @@ Question
 ## ReAct 与运行模式
 循环由 `src/q3/agent.py` 实现，默认最多 5 步，可通过配置、输入 `config.max_steps` 或 CLI 参数覆盖。每步 trace 记录 `step`、`action`、`query`、`tool_parameters`、`result_summary`、`next_action_reason`。工具观察中的证据数、冲突和改写状态会影响下一动作：有证据可进入回答，首次无证据触发改写，改写后仍无证据则拒答。默认候选信号为 BM25 + mock token-overlap semantic signal；CLI 未创建或注入实际 dense/FAISS retriever。FAISS 是可选索引工具，不在在线问答主链。
 
-默认离线 Mock 是确定性规则（首次无证据追加“相关制度”），仅验证协议、流程和边界。`--llm openai-compatible` 才请求外部 provider。测试中的模拟 provider 也只验证协议行为，不是在线真实模型决策。当前真实联调受 LLM endpoint TLS 证书过期阻断，reranker 返回 schema 缺少 `data` 阻断；没有真实 provider 成功结果可报告。
+默认离线 Mock 是确定性规则（首次无证据追加“相关制度”），仅验证协议、流程和边界。`--llm openai-compatible` 才请求外部 provider。测试中的模拟 provider 也只验证协议行为，不是在线真实模型决策。Provider 网络层使用 `httpx.AsyncClient`：chat/completions 走 `stream=true` SSE（聚合 `delta.content` 后解析 JSON，30 秒 idle 超时最多额外重试 3 次并丢弃 partial，4xx/schema/JSON 不重试，TLS 校验常开且禁止关闭），原生 `/rerank` 走非流式 JSON（支持 `results`/`data` 及 chat `scores`）。真实 SSE smoke 中组件调用成功、证书路径问题已排除；真实 Agent 端到端问答因模型首步决策未遵循 ReAct 协议未跑通，不声称在线准确率已验证。
 
 ## 组件与数据
 - `src/q3/agent.py`：ReAct 循环、检索编排、冲突处理和 trace。

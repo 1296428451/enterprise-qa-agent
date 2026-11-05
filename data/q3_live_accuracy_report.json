@@ -4,16 +4,19 @@
     "database": "data/knowledge.db",
     "runtime_mode": "offline_mock",
     "live_provider_status": {
-      "llm": "not_smoked_sse_revision",
-      "query_aware": "not_smoked_sse_revision",
-      "reranker": "not_smoked_sse_revision",
-      "agent_e2e": "mocktransport_offline_tests_only",
+      "llm_sse_chat": "success",
+      "query_aware_sse_chat": "success_via_same_chat_path",
+      "reranker_native": "success",
+      "reranker_smoke_scores": [0.9992, 0.0010],
+      "agent_e2e": "not_completed_model_protocol",
+      "tls_certificate_status": "resolved_not_expired",
       "certificate_verification_disabled": false
     },
     "notes": [
-      "This revision adds SSE streaming for chat completions and was not tested against live providers; prior non-streaming HTTPX, SDK, requests, or urllib success is not evidence of SSE success.",
-      "The current report's accuracy metrics below are from the local offline pipeline; no live-provider answer accuracy was measured.",
-      "Agent ReAct order, cancellation, retry and response parsing are covered by MockTransport offline tests only."
+      "Real SSE smoke used the local .env with standard TLS verification enabled: post_chat_stream received SSE events, aggregated delta.content and parsed a JSON object; ProviderReranker.score_async returned two scores.",
+      "The earlier expired-TLS-certificate blocker was transient/environment-specific and is resolved: the default SSL context validates the certificate chain (valid into 2027), and OpenAI SDK, requests and urllib all returned HTTP 200. TLS verification is never disabled.",
+      "CLI real Agent end-to-end did not return completed or insufficient_evidence: the live model's first ReAct decision did not follow the first-action-must-be-search protocol and raised ValueError. This is a model output behavior issue, not a TLS/network/SSE error; the SSE request itself succeeded.",
+      "No live-provider answer accuracy was measured; the accuracy metrics below are from the local offline deterministic pipeline. MockTransport offline tests cover retry, cancellation, client lifecycle and async ReAct order."
     ]
   },
   "dataset": {
@@ -73,7 +76,7 @@
     }
   ],
   "pytest": {
-    "passed": 45,
+    "passed": 65,
     "skipped": 1,
     "skip_reason": "embedding smoke test requires FRAMES_EMBEDDING_MODEL in the current system Python environment"
   }
