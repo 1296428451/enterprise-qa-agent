@@ -113,7 +113,7 @@ class OpenAICompatibleLLM:
 
     async def decide_action_async(self, question: str, observations: list[dict], history: list[dict] | None = None) -> ActionDecision:
         result = await self._complete_json_async(
-            "Choose exactly one action: search, answer, ask_user, or insufficient_evidence. For search provide a rewritten query. Return strict JSON with action, optional query, and reason.",
+            "Choose exactly one action: search, answer, ask_user, or insufficient_evidence. IMPORTANT: if observations is empty, you MUST return action=search with a rewritten query. Never answer from general knowledge. Return strict JSON with action, optional query, and reason.",
             {"question": question, "observations": observations, "history": history or []},
         )
         action = result.get("action")
