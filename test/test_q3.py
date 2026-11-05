@@ -108,6 +108,20 @@ def test_provider_reranker_orders_candidates_by_provider_score(chunks):
     assert ranked[0].rerank_score == 0.9
 
 
+def test_provider_reranker_supports_results_response_and_normalizes_native_endpoint(chunks):
+    items = [ScoredChunk(chunks[0]), ScoredChunk(chunks[1])]
+    body = {"results": [
+        {"index": 1, "relevance_score": 0.9, "document": {"text": "kept by provider"}},
+        {"index": 0, "relevance_score": 0.2},
+    ]}
+    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "test-key")
+    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(json.dumps(body).encode())) as open_url:
+        ranked = reranker.score("报销期限", items)
+    assert ranked[0].chunk.chunk_id == chunks[1].chunk_id
+    assert ranked[0].rerank_score == 0.9
+    assert open_url.call_args.args[0].full_url == "https://example.invalid/v1/rerank"
+
+
 def test_provider_reranker_supports_openai_chat_endpoint(chunks):
     items = [ScoredChunk(chunks[0]), ScoredChunk(chunks[1])]
     body = {"choices": [{"message": {"content": '{"scores":[0.1,0.8]}'}}]}

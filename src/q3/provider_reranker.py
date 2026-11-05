@@ -71,14 +71,14 @@ class ProviderReranker:
             request = Request(self.base_url, data=payload, headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.api_key})
             with urlopen(request, timeout=60) as response:
                 body = json.loads(response.read().decode("utf-8"))
-            data = body.get("data")
+            data = body.get("results", body.get("data"))
             if not isinstance(data, list):
-                raise ValueError("reranker response must contain a data array")
+                raise ValueError("reranker response must contain a results or data array")
             if len(data) != len(items):
                 raise ValueError("reranker response must include one score per candidate")
             scores = [None] * len(items)
             for entry in data:
-                if not isinstance(entry, dict) or not isinstance(entry.get("index"), int) or not isinstance(entry.get("relevance_score"), (int, float)):
+                if not isinstance(entry, dict) or not isinstance(entry.get("index"), int) or isinstance(entry.get("index"), bool) or not isinstance(entry.get("relevance_score"), (int, float)) or isinstance(entry.get("relevance_score"), bool):
                     raise ValueError("reranker entries require integer index and numeric relevance_score")
                 index = entry["index"]
                 if index < 0 or index >= len(items) or scores[index] is not None:
