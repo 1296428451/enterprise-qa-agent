@@ -108,7 +108,24 @@ def test_provider_reranker_orders_candidates_by_provider_score(chunks):
     assert ranked[0].rerank_score == 0.9
 
 
-def test_provider_reranker_rejects_missing_scores(chunks):
+def test_provider_reranker_supports_openai_chat_endpoint(chunks):
+    items = [ScoredChunk(chunks[0]), ScoredChunk(chunks[1])]
+    body = {"choices": [{"message": {"content": '{"scores":[0.1,0.8]}'}}]}
+    reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "secret-value")
+    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+        ranked = reranker.score("报销期限", items)
+    assert reranker.endpoint_type == "chat"
+    assert ranked[0].chunk.chunk_id == chunks[1].chunk_id
+
+
+def test_provider_reranker_rejects_malformed_chat_scores(chunks):
+    reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "test-key")
+    body = {"choices": [{"message": {"content": '{"scores":[true]}'}}]}
+    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+        with pytest.raises(ValueError, match="scores"):
+            reranker.score("报销", [ScoredChunk(chunks[0])])
+
+
     item = ScoredChunk(chunks[0])
     reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "test-key")
     with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(b'{"data":[]}')):
