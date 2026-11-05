@@ -166,6 +166,7 @@ def main():
         candidate_limit=int(config.get("candidate_limit", CONFIG["retrieval"]["candidate_limit"])),
         max_evidence=int(config.get("max_evidence", CONFIG["retrieval"]["max_evidence"])),
         max_steps=int(config.get("max_steps", args.max_steps)),
+        rerank_top=int(config.get("rerank_top", CONFIG["retrieval"]["rerank_top_k"])),
         reranker=reranker,
         llm=llm,
         extractor=extractor,

@@ -13,10 +13,12 @@ from .retrieval import EvidenceSelector, MockJevReranker, detect_conflict, hybri
 
 class EnterpriseQA:
     def __init__(self, chunks: list[Chunk], candidate_limit: int = 200, max_evidence: int = 8,
-                 semantic_retriever=None, reranker=None, llm=None, extractor=None, max_steps: int = 5):
+                 semantic_retriever=None, reranker=None, llm=None, extractor=None, max_steps: int = 5,
+                 rerank_top: int = 20):
         self.chunks = chunks
         self.candidate_limit = candidate_limit
         self.max_steps = max_steps
+        self.rerank_top = rerank_top
         self.semantic_retriever = semantic_retriever
         self.selector = EvidenceSelector(maximum=max_evidence)
         self.reranker = reranker or MockJevReranker()
@@ -35,7 +37,7 @@ class EnterpriseQA:
         candidates = merge_candidates(groups, self.candidate_limit)
         trace.append({"action": "hybrid_retrieve", "result": f"{len(candidates)} candidates"})
         ranked = await self.reranker.ascore(question, candidates) if hasattr(self.reranker, "ascore") else await self.reranker.score_async(question, candidates) if hasattr(self.reranker, "score_async") else self.reranker.score(question, candidates)
-        top_k = ranked[:20]
+        top_k = ranked[:self.rerank_top]
         trace.append({"action": "rerank", "result": f"{len(ranked)} ranked, top {len(top_k)} selected"})
         extraction = await self.extractor.aextract(question, top_k) if hasattr(self.extractor, "aextract") else await self.extractor.extract_async(question, top_k) if hasattr(self.extractor, "extract_async") else self.extractor.extract(question, top_k)
         trace.append({"action": "query_aware_extract",
@@ -109,7 +111,7 @@ class EnterpriseQA:
         for step in range(self.max_steps):
             decision = await self.llm.adecide_action(question, observations, history) if hasattr(self.llm, "adecide_action") else await self.llm.decide_action_async(question, observations, history) if hasattr(self.llm, "decide_action_async") else self.llm.decide_action(question, observations, history)
             trace.append({"step": step + 1, "action": decision.action, "query": decision.query,
-                          "tool_parameters": {"candidate_limit": self.candidate_limit, "rerank_top": 20},
+                          "tool_parameters": {"candidate_limit": self.candidate_limit, "rerank_top": self.rerank_top},
                           "result_summary": "", "next_action_reason": decision.reason})
             if step == 0 and decision.action != "search":
                 raise ValueError("the first ReAct action must be search")

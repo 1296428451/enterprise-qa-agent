@@ -22,6 +22,28 @@ def chunks():
     return load_chunks(Path(__file__).resolve().parents[1] / "data" / "q3_documents.json")
 
 
+def test_rerank_top_limits_candidates_entering_extraction(chunks):
+    """config.retrieval.rerank_top_k must actually reach the pipeline."""
+    from src.q3.query_aware import ExtractionResult
+
+    seen = {}
+
+    class RecordingExtractor:
+        def extract(self, question, candidates):
+            seen["count"] = len(candidates)
+            return ExtractionResult(question=question, evidence=[], candidates_in=len(candidates),
+                                    candidates_with_evidence=0, total_source_chars=0,
+                                    total_extracted_chars=0, compression_note="test",
+                                    token_budget=20000, candidates_skipped_budget=0)
+
+    # A broad query matches several chunks; the cap must truncate them.
+    qa = EnterpriseQA(chunks, extractor=RecordingExtractor(), rerank_top=1)
+    result = qa.answer("报销 期限 材料 审批")
+    assert seen["count"] == 1
+    assert result.trace[0]["step"] == 1
+    assert result.trace[0]["tool_parameters"]["rerank_top"] == 1
+
+
 def _sse_content(content):
     delta = json.dumps({"choices": [{"delta": {"content": content}}]})
     return httpx.Response(200, content=f"data: {delta}\n\ndata: [DONE]\n\n".encode())
