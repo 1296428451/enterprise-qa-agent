@@ -5,12 +5,16 @@
     "runtime_mode": "offline_mock",
     "live_provider_status": {
       "llm": "blocked_tls_certificate_expired",
-      "reranker": "connected_but_unexpected_response_schema",
+      "reranker": "connected_successfully_results_scores_received",
+      "reranker_model": "Qwen/Qwen3-Reranker-0.6B",
+      "reranker_smoke_scores": [0.9994, 0.0010],
+      "agent_e2e": "not_run_llm_blocked",
       "certificate_verification_disabled": false
     },
     "notes": [
       "Live LLM call could not complete because the configured endpoint's TLS certificate is expired.",
-      "Reranker endpoint responded without the expected data array; no reranker score was accepted.",
+      "Reranker direct smoke succeeded for two candidates; scores are rounded in this report and no provider URL or credential is recorded.",
+      "Agent end-to-end clear/conflict/unanswerable cases were not run because the LLM provider was blocked.",
       "The live-provider overall answer accuracy is not measurable in this run; accuracy metrics below are from the local offline pipeline."
     ]
   },

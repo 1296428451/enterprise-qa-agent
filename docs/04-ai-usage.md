@@ -10,6 +10,8 @@ AI 辅助用于阅读题目与仓库、整理需求、拟定实现/测试方案�
 - AI 协作：AI 编写项目简介/提交文字初稿，辅助代码初稿、测试样例、文档整理与调试建议；本人审查并定义测试与算法验收，不声称独立完成全部代码或测试。
 - 时间记录（阶段估计，非秒表记录）：三天考试窗口内，约一天用于调研；核心开发约 3 小时；之后约 1–2 天用于维护、调试、测试复核和文档整理。
 
-## 已知未完成项
-- 当前配置的 LLM provider 实际调用因服务端 TLS 证书过期而握手失败；未关闭 TLS 校验。
-- reranker 已支持显式 `/rerank` 原生接口与 `/chat/completions` OpenAI-compatible 接口；本次配置实际返回缺少 `data` 数组，故线上重排仍未验收。
+## Provider 联调记录
+- 本地 `.env` 的无引号 `KEY=value` 配置可由项目 `load_env_file` 加载；凭证不写入仓库或联调记录。
+- `Qwen/Qwen3-Reranker-0.6B` 的实际 reranker 直连 smoke 成功，两个候选分数约为 `0.9994`、`0.0010`。
+- `gpt-6.1-sol` 的 LLM 实际调用因服务端 TLS 证书过期而握手失败；TLS 校验保持开启。
+- 依赖在线 LLM 的 Agent clear/conflict/unanswerable E2E 未完成。reranker 单项成功不等于 Agent 端到端验收通过，也不代表在线准确率已验证。
