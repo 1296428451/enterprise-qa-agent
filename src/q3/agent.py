@@ -134,6 +134,9 @@ class EnterpriseQA:
                 observations.append(observation)
                 trace[-1]["result_summary"] = result.status
                 if result.status in {"conflict_detected", "version_conflict"}:
+                    # Keep the ReAct decision step in the returned trace so the
+                    # conflict path also has an auditable action/observation.
+                    result.trace = trace + result.trace
                     return result
                 continue
             if decision.action in {"ask_user", "insufficient_evidence", "stop"}:

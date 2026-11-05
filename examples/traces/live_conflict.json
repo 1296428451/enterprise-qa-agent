@@ -4,18 +4,32 @@
   "command": "python src/q3/cli.py --question \"报销期限多久？\" --llm openai-compatible --reranker provider --query-aware provider --max-steps 5 --save-run live_conflict",
   "request_file": "examples/requests/live_conflict.json",
   "result_file": "examples/results/live_conflict.json",
-  "react_steps": [],
+  "react_steps": [
+    {
+      "step": 1,
+      "action": "search",
+      "query": "报销期限是多久？请查找相关报销制度、申请时限及逾期处理规定。",
+      "tool_parameters": {
+        "candidate_limit": 200,
+        "rerank_top": 20
+      },
+      "result_summary": "conflict_detected",
+      "next_action_reason": "当前没有可用的检索观察结果，需查询知识库获取报销期限规定。"
+    }
+  ],
   "pipeline_trace": [
     {
       "action": "plan_queries",
       "result": "queries planned",
       "queries": [
-        "报销申请办理期限是多少",
-        "报销申请提交时限及逾期规定",
-        "费用报销申请应在何时提交",
-        "报销单提交截止时间和审批办理周期"
+        "报销期限相关制度规定",
+        "报销申请时限是多久",
+        "费用报销逾期如何处理",
+        "报销制度中报销时间限制及逾期处理规定",
+        "差旅费报销申请期限及逾期报销要求",
+        "财务报销管理办法 报销期限 逾期"
       ],
-      "intent": "查找报销申请的提交时限、办理期限及相关逾期规定"
+      "intent": "查找报销制度、报销申请时限以及逾期报销的处理规定"
     },
     {
       "action": "hybrid_retrieve",
@@ -28,8 +42,8 @@
     {
       "action": "query_aware_extract",
       "result": "2/4 candidates have evidence",
-      "compression_ratio": 0.44,
-      "note": "移除了与办理期限无关的适用范围描述、报销材料要求和审批进度信息。"
+      "compression_ratio": 0.62,
+      "note": "移除与报销期限及逾期处理无直接关系的审批材料和审批进度信息；候选内容未提供逾期处理规定。"
     },
     {
       "action": "select_evidence",
@@ -42,15 +56,28 @@
   ],
   "full_trace": [
     {
+      "step": 1,
+      "action": "search",
+      "query": "报销期限是多久？请查找相关报销制度、申请时限及逾期处理规定。",
+      "tool_parameters": {
+        "candidate_limit": 200,
+        "rerank_top": 20
+      },
+      "result_summary": "conflict_detected",
+      "next_action_reason": "当前没有可用的检索观察结果，需查询知识库获取报销期限规定。"
+    },
+    {
       "action": "plan_queries",
       "result": "queries planned",
       "queries": [
-        "报销申请办理期限是多少",
-        "报销申请提交时限及逾期规定",
-        "费用报销申请应在何时提交",
-        "报销单提交截止时间和审批办理周期"
+        "报销期限相关制度规定",
+        "报销申请时限是多久",
+        "费用报销逾期如何处理",
+        "报销制度中报销时间限制及逾期处理规定",
+        "差旅费报销申请期限及逾期报销要求",
+        "财务报销管理办法 报销期限 逾期"
       ],
-      "intent": "查找报销申请的提交时限、办理期限及相关逾期规定"
+      "intent": "查找报销制度、报销申请时限以及逾期报销的处理规定"
     },
     {
       "action": "hybrid_retrieve",
@@ -63,8 +90,8 @@
     {
       "action": "query_aware_extract",
       "result": "2/4 candidates have evidence",
-      "compression_ratio": 0.44,
-      "note": "移除了与办理期限无关的适用范围描述、报销材料要求和审批进度信息。"
+      "compression_ratio": 0.62,
+      "note": "移除与报销期限及逾期处理无直接关系的审批材料和审批进度信息；候选内容未提供逾期处理规定。"
     },
     {
       "action": "select_evidence",

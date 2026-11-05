@@ -241,6 +241,12 @@ def test_conflicting_policies_are_not_flattened(chunks):
     assert result.status == "conflict_detected"
     assert {item["document_id"] for item in result.citations} == {"D01", "D02"}
     assert result.verification["action"] == "ask_user"
+    # Conflict is an early-return branch; it must still expose the ReAct
+    # decision step so the run record stays auditable.
+    react_steps = [item for item in result.trace if "step" in item]
+    assert react_steps and react_steps[0]["action"] == "search"
+    assert react_steps[0]["result_summary"] == "conflict_detected"
+    assert "next_action_reason" in react_steps[0]
 
 
 def test_specific_question_returns_citation(chunks):

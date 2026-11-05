@@ -34,6 +34,19 @@ python src/q3/cli.py --input examples/requests/missing.json
 
 三条 `react_steps` 路径不同，满足"模型根据不同工具结果调整动作"的运行记录要求。此前 clear-case 多次未返回 `completed` 的根因是 ReAct 的 observation 只回传 `status`/`evidence_count`，没有把已核验通过的答案与证据原文交给决策模型，导致模型在看不到证据时连续拒答；修复方式是让 observation 携带 `verified`、`answer_preview`、`evidence_quotes`，并在 instruction 中说明已核验证据应返回 `answer`。该修复未改动 `quote` 精确子串校验、`citation_indices` 校验或 `max_steps` 上限。真实模型输出仍有随机性，上述记录是单次实测结果，不代表在线准确率已系统评测。
 
+### 卷面"必须验收"六项对照
+
+| 验收点 | 实际运行记录 | 结果 |
+|---|---|---|
+| 明确答案 | `examples/results/live_react.json`、`examples/traces/normal.json` | `completed`，引用 D03 原文，`verify` 通过 |
+| 文档冲突 | `examples/results/live_conflict.json`、`data/q3_eval_cases.json` | `conflict_detected`，列出 D01/D02 两条原文并要求确认，不选边 |
+| 资料外问题 | `examples/results/live_missing.json`、`examples/traces/missing.json` | `insufficient_evidence`，0 引用，不编造 |
+| 改写后的相似问题 | `examples/traces/live_missing.json`、`examples/traces/missing.json`、`data/q3_eval_cases.json` | trace 记录多次查询改写；评测含「出差报销要准备哪些材料？」等改写题 |
+| 上下文追问 | `examples/requests/q3_clear.json` | 携带 `conversation_history`，`answer(question, history)` 把历史传入 planner/action/verify |
+| 工具失败 | `examples/requests/provider_failure.json`、`examples/provider_invalid_action_response.json`、`examples/traces/provider_failure.json` | 回放非法 action 响应，记录实际异常输出与失败边界 |
+
+注：`live_conflict` 属于冲突早返回分支，本版已把外层 ReAct 决策步骤合并进返回 trace（`react_steps` 含 step 1 `search`），保证该路径同样可审计。
+
 ## 评测报告与指标
 - `data/q3_eval_report.json`：10 条离线问答案例，报告状态准确率、文档集合 exact accuracy、宏平均文档 precision/recall/F1、可回答题 exact-match、正确拒答准确率。
 - `data/q3_react_eval_report.json`：题库外 ReAct 案例，报告状态准确率、文档集合准确率和步数上限遵守率。
