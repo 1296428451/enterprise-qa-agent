@@ -205,6 +205,44 @@ def test_completeness_is_derived_from_status_answer_and_gaps():
     assert Answer("conflict_detected", None, [], ["冲突"], [], {}, {}).completeness == "none"
 
 
+def test_formatted_answer_uses_the_fixed_layout(chunks):
+    """The display layout is rendered by code, not left to the model."""
+    complete = EnterpriseQA(chunks).answer("差旅报销需要什么材料？")
+    assert complete.formatted.startswith("证据充足，")
+    assert "\n\n引用：\n[1] D03 v1：" in complete.formatted
+    # ``answer`` stays the bare body so the verifier and the offline
+    # exact-match metric keep comparing like with like.
+    assert not complete.answer.startswith("证据充足")
+
+    gap = "审核时长和付款时长未提供"
+    llm = _ScriptedAnswerLLM({"answer": "研发部门需在费用发生后 15 天内提交。",
+                              "citation_indices": [1], "conflict": False, "gap": gap})
+    partial = EnterpriseQA(chunks, llm=llm, reranker=_both_clause_reranker(chunks)).answer(
+        "研发部门有财务要报销，需要多长时间才可以？")
+    assert partial.formatted.startswith("证据部分充足，")
+    assert f"未覆盖：{gap}" in partial.formatted
+    assert "引用：\n[1] " in partial.formatted
+
+
+def test_formatted_answer_lists_records_instead_of_a_bare_refusal(chunks):
+    conflict = EnterpriseQA(chunks, reranker=_both_clause_reranker(chunks)).answer("报销期限多久？")
+    assert conflict.status == "conflict_detected"
+    assert conflict.formatted.startswith(
+        "证据不足无法直接回答（检索到的条款互相冲突），以下是可能相关的记录：")
+    assert "[1] D02 v1：" in conflict.formatted and "[2] D01 v1：" in conflict.formatted
+
+    missing = EnterpriseQA(chunks).answer("员工福利积分如何兑换？")
+    assert missing.formatted == "证据不足无法直接回答，知识库中没有检索到相关记录。"
+
+
+def test_formatted_answer_refreshes_when_the_answer_is_withdrawn():
+    answer = Answer("completed", "结论",
+                    [{"document_id": "D01", "version": "v1", "quote": "原文"}], [], [], {}, {"verified": True})
+    assert answer.formatted == "证据充足，结论\n\n引用：\n[1] D01 v1：原文"
+    answer.decline("追查后证据不足")
+    assert answer.formatted == "证据不足无法直接回答，以下是可能相关的记录：\n[1] D01 v1：原文"
+
+
 def _sse_content(content):
     delta = json.dumps({"choices": [{"delta": {"content": content}}]})
     return httpx.Response(200, content=f"data: {delta}\n\ndata: [DONE]\n\n".encode())

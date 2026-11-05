@@ -6,6 +6,7 @@
   "status": "completed",
   "completeness": "complete",
   "answer": "差旅报销需提交发票、行程单和审批记录。[1]",
+  "formatted": "证据充足，差旅报销需提交发票、行程单和审批记录。[1]\n\n引用：\n[1] D03 v1：差旅报销需要提交发票、行程单和审批记录。",
   "citations": [
     {
       "document_id": "D03",

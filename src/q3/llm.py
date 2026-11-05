@@ -216,7 +216,9 @@ class OpenAICompatibleLLM:
             "and conflict=true. Whenever any evidence is relevant you MUST return a non-empty "
             "answer: state what the evidence does support with citations, even if that is only part "
             "of what was asked, and put everything it does not cover into gap. Only return an empty "
-            "answer when no evidence is relevant at all. Return strict JSON with string answer, "
+            "answer when no evidence is relevant at all. Write only the answer body: do not add a "
+            "'证据充足' prefix, a 引用 list or a separator, because the caller renders that layout. "
+            "Return strict JSON with string answer, "
             "integer-array citation_indices, boolean conflict and string gap.",
             {"question": question, "evidence": evidence_input},
         )

@@ -6,6 +6,7 @@
   "status": "insufficient_evidence",
   "completeness": "none",
   "answer": null,
+  "formatted": "证据不足无法直接回答，知识库中没有检索到相关记录。",
   "citations": [],
   "gaps": [
     "没有检索到相关资料"

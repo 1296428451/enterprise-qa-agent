@@ -16,4 +16,4 @@ AI 辅助用于阅读题目与仓库、整理需求、拟定实现/测试方案�
 - 真实 SSE smoke（本地 `.env`，标准 TLS 校验）：`post_chat_stream` 与 `ProviderReranker.score_async` 均成功，`QueryAwareExtractor.aextract`、`aanswer_from_evidence`、`averify` 均返回合规 JSON；证书链校验正常（默认 SSL context 有效，SDK/requests/urllib 均 HTTP 200），TLS verify 常开且禁止关闭。
 - 本版把 `decide_action_async` instruction 收紧为"observations 为空必须 `action=search`、不得凭常识作答"，`src/q3/agent.py` 首步 search 硬检查保留兜底；真实 CLI 首步不再抛 `ValueError: the first ReAct action must be search`。
 - 真实 CLI 三段端到端（记录见 `examples/{requests,traces,results}/live_*.json`）：`差旅报销需要什么材料？` → `completed`（带 1 条引用 D03，`verify` 通过）；`报销期限多久？` → `conflict_detected`（2 条引用）；`公司有住房补贴吗？` → `insufficient_evidence`（0 条引用，检索至步数上限）。此前 clear-case 多次未 `completed` 的根因是 observation 未回传已核验答案与证据原文；修复只补齐信息流，未放宽引用校验、未加 fence 兼容层、未回退 Mock 或伪造 completed。
-- 完整 pytest：84 项（模型未下载时 83 passed、1 skipped）。
+- 完整 pytest：87 项（模型未下载时 86 passed、1 skipped）。

@@ -6,6 +6,7 @@
   "status": "conflict_detected",
   "completeness": "none",
   "answer": null,
+  "formatted": "证据不足无法直接回答（检索到的条款互相冲突），以下是可能相关的记录：\n[1] D01 v1：普通费用报销应在费用发生后 30 天内提交。适用于所有正式员工。\n[2] D02 v1：普通费用报销应在费用发生后 15 天内提交。适用于研发部门。",
   "citations": [
     {
       "document_id": "D01",
