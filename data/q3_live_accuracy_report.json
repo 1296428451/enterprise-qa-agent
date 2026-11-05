@@ -4,20 +4,16 @@
     "database": "data/knowledge.db",
     "runtime_mode": "offline_mock",
     "live_provider_status": {
-      "llm": "async_httpx_smoke_success",
-      "llm_model": "gpt-6.1-sol",
-      "query_aware": "async_httpx_smoke_success",
-      "reranker": "async_httpx_smoke_success",
-      "reranker_model": "Qwen/Qwen3-Reranker-0.6B",
-      "reranker_smoke_scores": [0.9995, 0.0011],
-      "agent_e2e": "async_mocktransport_test_passed; live provider end-to-end not run",
+      "llm": "not_smoked_sse_revision",
+      "query_aware": "not_smoked_sse_revision",
+      "reranker": "not_smoked_sse_revision",
+      "agent_e2e": "mocktransport_offline_tests_only",
       "certificate_verification_disabled": false
     },
     "notes": [
-      "Async HTTPX direct smoke succeeded for LLM, Query-Aware extraction, and reranker using the local environment configuration; no credentials or full URLs are recorded.",
-      "Reranker returned two scores rounded here to four decimal places.",
-      "Async Agent ReAct control-flow is tested with MockTransport; real-provider Agent clear/conflict/unanswerable accuracy has not been measured.",
-      "The offline accuracy metrics below remain from the local deterministic pipeline and must not be interpreted as online-provider accuracy."
+      "This revision adds SSE streaming for chat completions and was not tested against live providers; prior non-streaming HTTPX, SDK, requests, or urllib success is not evidence of SSE success.",
+      "The current report's accuracy metrics below are from the local offline pipeline; no live-provider answer accuracy was measured.",
+      "Agent ReAct order, cancellation, retry and response parsing are covered by MockTransport offline tests only."
     ]
   },
   "dataset": {

@@ -10,7 +10,7 @@ AI 辅助用于阅读题目与仓库、整理需求、拟定实现/测试方案�
 - AI 协作：AI 编写项目简介/提交文字初稿，辅助代码初稿、测试样例、文档整理与调试建议；本人审查并定义测试与算法验收，不声称独立完成全部代码或测试。
 - 时间记录（阶段估计，非秒表记录）：三天考试窗口内，约一天用于调研；核心开发约 3 小时；之后约 1–2 天用于维护、调试、测试复核和文档整理。
 
-## Provider 异步联调记录
-- 网络层统一使用 `httpx.AsyncClient`，TLS 验证开启并配置显式超时；同步 API 仅在无运行中 event loop 时包装异步流程。
-- 本地 `.env` 的异步 smoke 成功调用 LLM `gpt-6.1-sol`、Query-Aware 和 reranker `Qwen/Qwen3-Reranker-0.6B`；reranker 两个候选分数约为 `0.9995`、`0.0011`。
-- `EnterpriseQA.answer_async()` 的 ReAct 控制流以 MockTransport 测试覆盖；尚未用真实 provider 运行 Agent clear/conflict/unanswerable E2E 或在线准确率评估。
+## Provider SSE 联调记录
+- 网络层统一使用 `httpx.AsyncClient`，chat/completions 发送 `stream=true` 并聚合 SSE `delta.content`；默认相邻块空闲阈值 30 秒，最多额外重试 3 次，partial 每次重试丢弃。
+- 4xx、schema/JSON 错误不重试；TLS verify 保持开启，可配置 CA，不允许 `verify=False`。注入的 AsyncClient 由调用方拥有，内部创建的 client 在请求结束时关闭。
+- 本版本 SSE 改造仅完成 MockTransport 离线验收：65 passed、1 skipped；未执行真实 HTTPX Provider smoke，也未验证真实 Provider Agent E2E。

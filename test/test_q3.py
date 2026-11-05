@@ -22,6 +22,15 @@ def chunks():
     return load_chunks(Path(__file__).resolve().parents[1] / "data" / "q3_documents.json")
 
 
+def _sse_content(content):
+    delta = json.dumps({"choices": [{"delta": {"content": content}}]})
+    return httpx.Response(200, content=f"data: {delta}\n\ndata: [DONE]\n\n".encode())
+
+
+def _sse_transport(content):
+    return httpx.MockTransport(lambda request: _sse_content(content))
+
+
 def test_sqlite_schema_is_created():
     import tempfile
     import sqlite3
@@ -96,7 +105,8 @@ def test_openai_compatible_llm_sends_auth_and_parses_http_json():
     def handler(request):
         seen["url"] = str(request.url)
         seen["auth"] = request.headers["authorization"]
-        return httpx.Response(200, json={"choices": [{"message": {"content": '{"queries":["报销"],"intent":"lookup"}'}}]})
+        seen["body"] = json.loads(request.content)
+        return _sse_content('{"queries":["报销"],"intent":"lookup"}')
 
     llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "secret-value",
                               transport=httpx.MockTransport(handler))
@@ -140,18 +150,16 @@ def test_provider_reranker_supports_results_response_and_normalizes_native_endpo
 
 def test_provider_reranker_supports_openai_chat_endpoint(chunks):
     items = [ScoredChunk(chunks[0]), ScoredChunk(chunks[1])]
-    body = {"choices": [{"message": {"content": '{"scores":[0.1,0.8]}'}}]}
     reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "secret-value",
-                                transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+                                transport=_sse_transport('{"scores":[0.1,0.8]}'))
     ranked = reranker.score("报销期限", items)
     assert reranker.endpoint_type == "chat"
     assert ranked[0].chunk.chunk_id == chunks[1].chunk_id
 
 
 def test_provider_reranker_rejects_malformed_chat_scores(chunks):
-    body = {"choices": [{"message": {"content": '{"scores":[true]}'}}]}
     reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "secret-value",
-                                transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+                                transport=_sse_transport('{"scores":[true]}'))
     with pytest.raises(ValueError, match="scores"):
         reranker.score("报销", [ScoredChunk(chunks[0])])
 

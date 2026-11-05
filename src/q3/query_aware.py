@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from .async_provider import chat_url, parse_chat_json, post_json, run_sync
+from .async_provider import (DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_RETRIES, chat_url,
+                             parse_chat_json, post_chat_stream, run_sync)
 from .models import ScoredChunk
 
 QUERY_AWARE_PROMPT = """\
@@ -146,7 +147,9 @@ class MockQueryAwareExtractor:
 
 class OpenAICompatibleQueryAwareExtractor:
     def __init__(self, base_url: str, model: str, api_key: str, max_tokens: int = 20000,
-                 timeout: float = 120.0, transport: httpx.AsyncBaseTransport | None = None):
+                 timeout: float = 120.0, transport: httpx.AsyncBaseTransport | None = None,
+                 client: httpx.AsyncClient | None = None, verify: bool | str = True,
+                 idle_timeout: float = DEFAULT_IDLE_TIMEOUT, max_retries: int = DEFAULT_MAX_RETRIES):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
@@ -154,6 +157,10 @@ class OpenAICompatibleQueryAwareExtractor:
         self.chat_url = chat_url(self.base_url)
         self.timeout_config = httpx.Timeout(timeout)
         self.transport = transport
+        self.client = client
+        self.verify_ssl = verify
+        self.idle_timeout = idle_timeout
+        self.max_retries = max_retries
 
     async def _call_async(self, prompt_payload: dict) -> dict:
         body = {
@@ -164,7 +171,9 @@ class OpenAICompatibleQueryAwareExtractor:
                 {"role": "user", "content": json.dumps(prompt_payload, ensure_ascii=False)},
             ],
         }
-        result = await post_json(self.chat_url, self.api_key, body, self.timeout_config, self.transport)
+        result = await post_chat_stream(self.chat_url, self.api_key, body, self.timeout_config,
+                                        self.idle_timeout, self.max_retries, self.transport,
+                                        self.client, self.verify_ssl)
         return parse_chat_json(result, "Query-aware response must contain choices[0].message.content JSON object")
 
     def _call(self, prompt_payload: dict) -> dict:
@@ -232,6 +241,9 @@ class OpenAICompatibleQueryAwareExtractor:
             token_budget=self.max_tokens,
             candidates_skipped_budget=skipped_budget,
         )
+
+    async def aextract(self, question: str, candidates: list[ScoredChunk]) -> ExtractionResult:
+        return await self.extract_async(question, candidates)
 
     def extract(self, question: str, candidates: list[ScoredChunk]) -> ExtractionResult:
         return run_sync(self.extract_async(question, candidates))

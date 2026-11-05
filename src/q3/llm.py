@@ -6,7 +6,8 @@ from dataclasses import dataclass
 
 import httpx
 
-from .async_provider import DEFAULT_TIMEOUT, chat_url, parse_chat_json, post_json, run_sync
+from .async_provider import (DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, chat_url,
+                             parse_chat_json, post_chat_stream, run_sync)
 
 
 @dataclass
@@ -63,7 +64,9 @@ class MockLLM:
 class OpenAICompatibleLLM:
     def __init__(self, base_url: str | None = None, model: str | None = None, api_key: str | None = None,
                  response_fixture: dict | None = None, timeout: float = 60.0,
-                 transport: httpx.AsyncBaseTransport | None = None):
+                 transport: httpx.AsyncBaseTransport | None = None, client: httpx.AsyncClient | None = None,
+                 verify: bool | str = True, idle_timeout: float = DEFAULT_IDLE_TIMEOUT,
+                 max_retries: int = DEFAULT_MAX_RETRIES):
         self.base_url = (base_url or os.environ["OPENAI_BASE_URL"]).rstrip("/")
         self.model = model or os.environ["OPENAI_MODEL"]
         self.api_key = api_key or os.environ["OPENAI_API_KEY"]
@@ -71,6 +74,10 @@ class OpenAICompatibleLLM:
         self.chat_completions_url = chat_url(self.base_url)
         self.timeout = httpx.Timeout(timeout)
         self.transport = transport
+        self.client = client
+        self.verify_ssl = verify
+        self.idle_timeout = idle_timeout
+        self.max_retries = max_retries
 
     async def _complete_json_async(self, instruction: str, payload: dict) -> dict:
         patched_async = self.__dict__.get("_complete_json_async")
@@ -93,8 +100,13 @@ class OpenAICompatibleLLM:
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
             }
-            result = await post_json(self.chat_completions_url, self.api_key, body, self.timeout, self.transport)
+            result = await post_chat_stream(self.chat_completions_url, self.api_key, body, self.timeout,
+                                            self.idle_timeout, self.max_retries, self.transport,
+                                            self.client, self.verify_ssl)
         return parse_chat_json(result, "LLM response must contain choices[0].message.content JSON object")
+
+    async def _acomplete_json(self, instruction: str, payload: dict) -> dict:
+        return await self._complete_json_async(instruction, payload)
 
     def _complete_json(self, instruction: str, payload: dict) -> dict:
         return run_sync(self._complete_json_async(instruction, payload))
@@ -132,8 +144,17 @@ class OpenAICompatibleLLM:
             raise ValueError("LLM planner intent must be a string")
         return QueryPlan(queries, intent)
 
+    async def aplan(self, question: str, history: list[dict] | None = None) -> QueryPlan:
+        return await self.plan_async(question, history)
+
     def plan(self, question: str, history: list[dict] | None = None) -> QueryPlan:
         return run_sync(self.plan_async(question, history))
+
+    async def adecide_action(self, question: str, observations: list[dict], history: list[dict] | None = None) -> ActionDecision:
+        return await self.decide_action_async(question, observations, history)
+
+    async def aanswer_from_evidence(self, question: str, evidence_input: str) -> dict:
+        return await self.answer_from_evidence_async(question, evidence_input)
 
     async def answer_from_evidence_async(self, question: str, evidence_input: str) -> dict:
         result = await self._complete_json_async(
@@ -164,6 +185,9 @@ class OpenAICompatibleLLM:
         if result["verified"] and (claims or result["action"] != "answer"):
             raise ValueError("LLM verifier returned contradictory approval fields")
         return result
+
+    async def averify(self, question: str, answer: str | None, citations: list[dict]) -> dict:
+        return await self.verify_async(question, answer, citations)
 
     def verify(self, question: str, answer: str | None, citations: list[dict]) -> dict:
         return run_sync(self.verify_async(question, answer, citations))

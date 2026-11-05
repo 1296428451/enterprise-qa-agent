@@ -6,7 +6,8 @@ from dataclasses import dataclass
 
 import httpx
 
-from .async_provider import DEFAULT_TIMEOUT, chat_url, parse_chat_json, post_json, run_sync
+from .async_provider import (DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT,
+                             chat_url, parse_chat_json, post_chat_stream, post_json, run_sync)
 from .models import ScoredChunk
 
 
@@ -17,6 +18,10 @@ class ProviderReranker:
     api_key: str
     timeout: float = 60.0
     transport: httpx.AsyncBaseTransport | None = None
+    client: httpx.AsyncClient | None = None
+    verify: bool | str = True
+    idle_timeout: float = DEFAULT_IDLE_TIMEOUT
+    max_retries: int = DEFAULT_MAX_RETRIES
 
     def __post_init__(self):
         self.base_url = self.base_url.rstrip("/")
@@ -36,35 +41,27 @@ class ProviderReranker:
             "temperature": 0,
             "messages": [
                 {"role": "system", "content": 'Return JSON only: {"scores":[number per document in input order]}.'},
-                {"role": "user", "content": json.dumps({
-                    "query": query,
-                    "documents": [item.chunk.text for item in items],
-                }, ensure_ascii=False)},
+                {"role": "user", "content": json.dumps({"query": query, "documents": [item.chunk.text for item in items]}, ensure_ascii=False)},
             ],
         }
-        response = await post_json(chat_url(self.base_url), self.api_key, body, self.timeout_config, self.transport)
+        response = await post_chat_stream(chat_url(self.base_url), self.api_key, body, self.timeout_config,
+                                          self.idle_timeout, self.max_retries, self.transport, self.client, self.verify)
         parsed = parse_chat_json(response, "chat reranker response must contain choices[0].message.content JSON")
         scores = parsed.get("scores")
-        if not isinstance(scores, list) or len(scores) != len(items):
-            raise ValueError("chat reranker response must contain one score per candidate")
-        if not all(isinstance(score, (int, float)) and not isinstance(score, bool) for score in scores):
-            raise ValueError("chat reranker scores must be numbers")
+        if not isinstance(scores, list) or len(scores) != len(items) or not all(isinstance(score, (int, float)) and not isinstance(score, bool) for score in scores):
+            raise ValueError("chat reranker response must contain numeric scores per candidate")
         return [float(score) for score in scores]
 
-    async def score_async(self, query: str, items: list[ScoredChunk]) -> list[ScoredChunk]:
+    async def ascore(self, query: str, items: list[ScoredChunk]) -> list[ScoredChunk]:
         if not items:
             return []
         if self.endpoint_type == "chat":
             scores = await self._chat_scores_async(query, items)
         else:
-            body = {
-                "model": self.model,
-                "query": query,
-                "documents": [item.chunk.text for item in items],
-                "top_n": len(items),
-                "return_documents": True,
-            }
-            response = await post_json(self.base_url, self.api_key, body, self.timeout_config, self.transport)
+            body = {"model": self.model, "query": query, "documents": [item.chunk.text for item in items],
+                    "top_n": len(items), "return_documents": True}
+            response = await post_json(self.base_url, self.api_key, body, self.timeout_config,
+                                       self.transport, self.client, self.verify)
             data = response.get("results", response.get("data"))
             if not isinstance(data, list) or len(data) != len(items):
                 raise ValueError("reranker response must include one result per candidate")
@@ -84,8 +81,11 @@ class ProviderReranker:
                   for index, item in enumerate(items)]
         return sorted(ranked, key=lambda item: item.rerank_score, reverse=True)
 
+    async def score_async(self, query: str, items: list[ScoredChunk]) -> list[ScoredChunk]:
+        return await self.ascore(query, items)
+
     def score(self, query: str, items: list[ScoredChunk]) -> list[ScoredChunk]:
-        return run_sync(self.score_async(query, items))
+        return run_sync(self.ascore(query, items))
 
     @classmethod
     def from_environment(cls):

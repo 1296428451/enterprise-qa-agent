@@ -24,7 +24,7 @@ class EnterpriseQA:
         self.extractor = extractor or MockQueryAwareExtractor()
 
     async def _answer_once_async(self, question: str, history: list[dict] | None = None) -> Answer:
-        plan = await self.llm.plan_async(question, history) if hasattr(self.llm, "plan_async") else self.llm.plan(question, history)
+        plan = await self.llm.aplan(question, history) if hasattr(self.llm, "aplan") else await self.llm.plan_async(question, history) if hasattr(self.llm, "plan_async") else self.llm.plan(question, history)
         if not plan.queries or not all(isinstance(query, str) and query.strip() for query in plan.queries):
             raise ValueError("planner must return a non-empty list of query strings")
         if not isinstance(plan.intent, str):
@@ -34,10 +34,10 @@ class EnterpriseQA:
                   for query in plan.queries]
         candidates = merge_candidates(groups, self.candidate_limit)
         trace.append({"action": "hybrid_retrieve", "result": f"{len(candidates)} candidates"})
-        ranked = await self.reranker.score_async(question, candidates) if hasattr(self.reranker, "score_async") else self.reranker.score(question, candidates)
+        ranked = await self.reranker.ascore(question, candidates) if hasattr(self.reranker, "ascore") else await self.reranker.score_async(question, candidates) if hasattr(self.reranker, "score_async") else self.reranker.score(question, candidates)
         top_k = ranked[:20]
         trace.append({"action": "rerank", "result": f"{len(ranked)} ranked, top {len(top_k)} selected"})
-        extraction = await self.extractor.extract_async(question, top_k) if hasattr(self.extractor, "extract_async") else self.extractor.extract(question, top_k)
+        extraction = await self.extractor.aextract(question, top_k) if hasattr(self.extractor, "aextract") else await self.extractor.extract_async(question, top_k) if hasattr(self.extractor, "extract_async") else self.extractor.extract(question, top_k)
         trace.append({"action": "query_aware_extract",
                       "result": f"{extraction.candidates_with_evidence}/{extraction.candidates_in} candidates have evidence",
                       "compression_ratio": round(extraction.compression_ratio, 3), "note": extraction.compression_note})
@@ -76,7 +76,7 @@ class EnterpriseQA:
             return Answer("insufficient_evidence", None, [], ["抽取后未发现与问题相关的证据"], trace,
                           {"candidate_count": len(candidates), "selected_count": len(evidence),
                            "extracted_evidence_count": 0, "answer_input": answer_input}, {"verified": False})
-        generated = await self.llm.answer_from_evidence_async(question, answer_input) if hasattr(self.llm, "answer_from_evidence_async") else self.llm.answer_from_evidence(question, answer_input)
+        generated = await self.llm.aanswer_from_evidence(question, answer_input) if hasattr(self.llm, "aanswer_from_evidence") else await self.llm.answer_from_evidence_async(question, answer_input) if hasattr(self.llm, "answer_from_evidence_async") else self.llm.answer_from_evidence(question, answer_input)
         answer_text = generated.get("answer", "")
         cited_indices = generated.get("citation_indices")
         if (not isinstance(cited_indices, list) or not cited_indices
@@ -89,7 +89,7 @@ class EnterpriseQA:
                            "answer_input": answer_input}, {"verified": False, "action": "ask_user"})
         valid_citations = [extracted_citations[index - 1] for index in cited_indices]
         trace.append({"action": "answer_from_evidence", "result": f"generated answer with {len(valid_citations)} citations"})
-        verification = await self.llm.verify_async(question, answer_text, valid_citations) if hasattr(self.llm, "verify_async") else self.llm.verify(question, answer_text, valid_citations)
+        verification = await self.llm.averify(question, answer_text, valid_citations) if hasattr(self.llm, "averify") else await self.llm.verify_async(question, answer_text, valid_citations) if hasattr(self.llm, "verify_async") else self.llm.verify(question, answer_text, valid_citations)
         trace.append({"action": "verify_answer", "result": "passed" if verification["verified"] else "unsupported claims"})
         status = "completed" if verification["verified"] and answer_text else "insufficient_evidence"
         gaps = [] if status == "completed" else verification.get("unsupported_claims", []) or ["答案未通过引用核验"]
@@ -107,7 +107,7 @@ class EnterpriseQA:
         current_query = question
         result = None
         for step in range(self.max_steps):
-            decision = await self.llm.decide_action_async(question, observations, history) if hasattr(self.llm, "decide_action_async") else self.llm.decide_action(question, observations, history)
+            decision = await self.llm.adecide_action(question, observations, history) if hasattr(self.llm, "adecide_action") else await self.llm.decide_action_async(question, observations, history) if hasattr(self.llm, "decide_action_async") else self.llm.decide_action(question, observations, history)
             trace.append({"step": step + 1, "action": decision.action, "query": decision.query,
                           "tool_parameters": {"candidate_limit": self.candidate_limit, "rerank_top": 20},
                           "result_summary": "", "next_action_reason": decision.reason})

@@ -1,4 +1,5 @@
 import json
+import json
 import httpx
 import sys
 from pathlib import Path
@@ -87,7 +88,10 @@ def test_llm_extractor_parses_valid_response():
     }
     llm = OpenAICompatibleQueryAwareExtractor(
         "https://example.invalid/v1", "test-model", "test-key",
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(mock_response)}}]})))
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=(
+            "data: " + json.dumps({"choices": [{"delta": {"content": json.dumps(mock_response)}}]})
+            + "\n\ndata: [DONE]\n\n"
+        ).encode())))
     result = llm.extract("报销期限多久？", items)
     assert result.candidates_with_evidence == 1
     assert result.evidence[0].relevance == "high"
@@ -99,7 +103,10 @@ def test_llm_extractor_rejects_bad_index():
     bad = {"evidence": [{"index": 99, "source_id": "D01", "relevance": "high", "quote": "x", "key_info": "y"}]}
     llm = OpenAICompatibleQueryAwareExtractor(
         "https://example.invalid/v1", "test-model", "test-key",
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(bad)}}]})))
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=(
+            "data: " + json.dumps({"choices": [{"delta": {"content": json.dumps(bad)}}]})
+            + "\n\ndata: [DONE]\n\n"
+        ).encode())))
     with pytest.raises(ValueError):
         llm.extract("test", items)
 
@@ -112,6 +119,9 @@ def test_llm_extractor_rejects_duplicate_index():
     ]}
     llm = OpenAICompatibleQueryAwareExtractor(
         "https://example.invalid/v1", "test-model", "test-key",
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(bad)}}]})))
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=(
+            "data: " + json.dumps({"choices": [{"delta": {"content": json.dumps(bad)}}]})
+            + "\n\ndata: [DONE]\n\n"
+        ).encode())))
     with pytest.raises(ValueError):
         llm.extract("test", items)
