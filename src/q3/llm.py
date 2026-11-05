@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -21,6 +22,27 @@ class ActionDecision:
     action: str
     query: str | None = None
     reason: str = ""
+
+
+def parse_evidence(text: str) -> list[dict]:
+    """Parse the numbered evidence block produced by ExtractionResult.to_answer_input."""
+    entries: list[dict] = []
+    current: dict | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        header = re.match(r"^\[(\d+)\]\s*\(([^)]+)\)", line)
+        if header:
+            if current:
+                entries.append(current)
+            current = {"index": int(header.group(1)), "source_id": header.group(2),
+                       "quote": "", "scope": ""}
+        elif current is not None and line.startswith("Quote:"):
+            current["quote"] = line[len("Quote:"):].strip()
+        elif current is not None and line.startswith("Scope:"):
+            current["scope"] = line[len("Scope:"):].strip()
+    if current:
+        entries.append(current)
+    return entries
 
 
 class MockLLM:
@@ -46,9 +68,34 @@ class MockLLM:
         return self.decide_action(question, observations, history)
 
     def answer_from_evidence(self, question: str, evidence_input: str) -> dict:
-        lines = [line.strip() for line in evidence_input.splitlines() if line.strip().startswith("Quote:")]
-        quote = lines[0].replace("Quote:", "", 1).strip() if lines else ""
-        return {"answer": quote, "citation_indices": [1] if quote else []}
+        """Deterministic stand-in for the single answer call.
+
+        Mirrors what the provider is asked to do: prefer a clause whose scope the
+        question names, and report a conflict when the surviving clauses disagree.
+        """
+        from .retrieval import tokenize
+
+        entries = [entry for entry in parse_evidence(evidence_input) if entry["quote"]]
+        if not entries:
+            return {"answer": "", "citation_indices": [], "conflict": False}
+        question_tokens = set(tokenize(question))
+        governing = []
+        for entry in entries:
+            scope = entry["scope"]
+            if not scope or any(token in scope for token in ("所有", "全体", "全部", "全公司")):
+                continue
+            scope_tokens = set(tokenize(scope))
+            if scope_tokens and len(scope_tokens & question_tokens) / len(scope_tokens) >= 0.6:
+                governing.append(entry)
+        if len({entry["scope"] for entry in governing}) == 1:
+            chosen = governing[0]
+            return {"answer": chosen["quote"], "citation_indices": [chosen["index"]], "conflict": False}
+        values = {match.group(0) for entry in entries
+                  for match in [re.search(r"\d+", entry["quote"])] if match}
+        if len(entries) >= 2 and len(values) > 1:
+            return {"answer": "", "citation_indices": [], "conflict": True}
+        chosen = entries[0]
+        return {"answer": chosen["quote"], "citation_indices": [chosen["index"]], "conflict": False}
 
     async def answer_from_evidence_async(self, question: str, evidence_input: str) -> dict:
         return self.answer_from_evidence(question, evidence_input)
@@ -158,13 +205,23 @@ class OpenAICompatibleLLM:
 
     async def answer_from_evidence_async(self, question: str, evidence_input: str) -> dict:
         result = await self._complete_json_async(
-            "Answer using only numbered evidence. Cite factual claims with [index]. If evidence is insufficient or conflicting, return an empty answer. Return JSON with string answer and integer-array citation_indices.",
+            "Answer the question using only the numbered evidence. Cite every factual claim with "
+            "[index]. Each item carries a Scope line when the clause declares one: when the "
+            "question names a scope, the matching scoped clause governs and a general clause that "
+            "would otherwise disagree is not a conflict. If the clauses still contradict each "
+            "other for this question, do not pick a side: return an empty answer, an empty "
+            "citation_indices array and conflict=true. If evidence is merely insufficient, return "
+            "an empty answer with conflict=false. Return strict JSON with string answer, "
+            "integer-array citation_indices and boolean conflict.",
             {"question": question, "evidence": evidence_input},
         )
         answer = result.get("answer")
         citations = result.get("citation_indices")
+        conflict = result.get("conflict", False)
         if not isinstance(answer, str) or not isinstance(citations, list) or not all(type(i) is int for i in citations):
             raise ValueError("LLM answer must contain answer and citation_indices")
+        if not isinstance(conflict, bool):
+            raise ValueError("LLM answer conflict must be a boolean")
         return result
 
     def answer_from_evidence(self, question: str, evidence_input: str) -> dict:

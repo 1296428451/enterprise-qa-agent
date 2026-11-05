@@ -44,6 +44,67 @@ def test_rerank_top_limits_candidates_entering_extraction(chunks):
     assert result.trace[0]["tool_parameters"]["rerank_top"] == 1
 
 
+def _both_clause_reranker(chunks):
+    by_id = {chunk.document_id: chunk for chunk in chunks}
+
+    class BothReranker:
+        def score(self, query, items):
+            # Force both the general and the department-specific clause into evidence,
+            # which is what a provider reranker does and what triggers the conflict path.
+            return [ScoredChunk(by_id["D02"], 1.0, 0.9, 1.0),
+                    ScoredChunk(by_id["D01"], 0.9, 0.8, 0.9)]
+
+    return BothReranker()
+
+
+def test_scope_specific_clause_outranks_general_clause(chunks):
+    qa = EnterpriseQA(chunks, reranker=_both_clause_reranker(chunks))
+    result = qa.answer("研发部门有财务要报销，需要多长时间才可以？")
+    assert result.status == "completed"
+    assert [citation["document_id"] for citation in result.citations] == ["D02"]
+    assert "15 天" in (result.answer or "")
+    actions = [step.get("action") for step in result.trace]
+    # The heuristic still flags a possible conflict, but the answer call decides.
+    assert "detect_conflict" in actions
+    assert "answer_from_evidence" in actions
+
+
+def test_general_and_specific_clause_still_conflict_without_scope_mention(chunks):
+    qa = EnterpriseQA(chunks, reranker=_both_clause_reranker(chunks))
+    result = qa.answer("报销期限多久？")
+    assert result.status == "conflict_detected"
+    assert {citation["document_id"] for citation in result.citations} == {"D01", "D02"}
+    # The conflict comes from the answer call, not from an early rule return.
+    calls = [step for step in result.trace if step.get("action") == "answer_from_evidence"]
+    assert calls and "conflicting" in calls[-1]["result"]
+
+
+def test_answer_call_resolves_scope_and_reports_real_conflicts():
+    from src.q3.llm import MockLLM, parse_evidence
+
+    evidence = """Question: 研发部门有财务要报销，需要多长时间才可以？
+
+Evidence:
+[1] (D01) 普通费用报销
+    Quote: 普通费用报销应在费用发生后 30 天内提交。
+    Scope: 所有正式员工
+[2] (D02) 差旅报销
+    Quote: 普通费用报销应在费用发生后 15 天内提交。
+    Scope: 研发部门"""
+    parsed = parse_evidence(evidence)
+    assert [entry["source_id"] for entry in parsed] == ["D01", "D02"]
+    assert parsed[1]["scope"] == "研发部门"
+
+    scoped = MockLLM().answer_from_evidence("研发部门有财务要报销，需要多长时间才可以？", evidence)
+    assert scoped["conflict"] is False
+    assert scoped["citation_indices"] == [2]
+    assert "15 天" in scoped["answer"]
+
+    ambiguous = MockLLM().answer_from_evidence("报销期限多久？", evidence)
+    assert ambiguous["conflict"] is True
+    assert ambiguous["answer"] == "" and ambiguous["citation_indices"] == []
+
+
 def _sse_content(content):
     delta = json.dumps({"choices": [{"delta": {"content": content}}]})
     return httpx.Response(200, content=f"data: {delta}\n\ndata: [DONE]\n\n".encode())
@@ -306,8 +367,8 @@ def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
             return decisions.pop(0)
         if instruction.startswith("Generate retrieval queries"):
             return {"queries": [payload["question"]], "intent": "查询制度"}
-        if instruction.startswith("Answer using only numbered evidence"):
-            return {"answer": "需要发票和行程单", "citation_indices": [1]}
+        if instruction.startswith("Answer the question using only the numbered evidence"):
+            return {"answer": "需要发票和行程单", "citation_indices": [1], "conflict": False}
         if instruction.startswith("Check whether every claim"):
             return {"verified": True, "unsupported_claims": [], "action": "answer"}
         raise AssertionError(f"unexpected LLM instruction: {instruction}")

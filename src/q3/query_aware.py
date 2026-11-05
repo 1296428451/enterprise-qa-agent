@@ -9,6 +9,7 @@ import httpx
 from .async_provider import (DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_RETRIES, chat_url,
                              parse_chat_json, post_chat_stream, run_sync)
 from .models import ScoredChunk
+from .retrieval import scope_phrase
 
 QUERY_AWARE_PROMPT = """\
 You are an evidence extraction system for enterprise knowledge QA.
@@ -53,6 +54,7 @@ class ExtractedEvidence:
     relevance: str
     quote: str
     key_info: str
+    scope: str = ""
 
 
 @dataclass
@@ -80,6 +82,10 @@ class ExtractionResult:
                 continue
             parts.append(f"[{item.index}] ({item.source_id}) {item.key_info}")
             parts.append(f"    Quote: {item.quote}")
+            if item.scope:
+                # The applicability phrase decides which clause governs a
+                # scoped question, so it must travel with the evidence.
+                parts.append(f"    Scope: {item.scope}")
         return "\n".join(parts)
 
 
@@ -133,6 +139,7 @@ class MockQueryAwareExtractor:
                 relevance=relevance,
                 quote=quote,
                 key_info=key_info[:80],
+                scope=scope_phrase(item.chunk.text),
             ))
         return ExtractionResult(
             question=question,
@@ -228,6 +235,7 @@ class OpenAICompatibleQueryAwareExtractor:
                 relevance=relevance,
                 quote=quote,
                 key_info=key_info[:120],
+                scope=scope_phrase(candidate.chunk.text),
             ))
         evidence.sort(key=lambda e: e.index)
         return ExtractionResult(

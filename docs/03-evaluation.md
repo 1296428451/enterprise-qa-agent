@@ -47,6 +47,8 @@ python src/q3/cli.py --input examples/requests/missing.json
 
 注：`live_conflict` 属于冲突早返回分支，本版已把外层 ReAct 决策步骤合并进返回 trace（`react_steps` 含 step 1 `search`），保证该路径同样可审计。
 
+冲突判定交给作答那一次请求：Query-Aware 抽取会把条文声明的适用范围写进证据（`Scope: 研发部门`），模型据此在候选条款中选适用的那条，或判定它们是否真的互相矛盾。判为矛盾时模型返回 `answer=""`、`citation_indices=[]`、`conflict=true`，系统据此返回 `conflict_detected` 且 `action=ask_user`；`retrieval.detect_conflict` 仍计算一个启发式提示并写入 trace（`detect_conflict` 步骤），但不再据此提前返回。因此「报销期限多久？」（未点名部门）仍要求确认，「研发部门…」则直接依据 `适用于研发部门` 的条款作答。Mock 用同一语义的确定性规则实现（范围重叠优先、数值不同才判冲突），provider 侧由指令约束；对应测试见 `tests/test_q3.py` 的 scope 用例。
+
 ## 评测报告与指标
 - `data/q3_eval_report.json`：10 条离线问答案例，报告状态准确率、文档集合 exact accuracy、宏平均文档 precision/recall/F1、可回答题 exact-match、正确拒答准确率。
 - `data/q3_react_eval_report.json`：题库外 ReAct 案例，报告状态准确率、文档集合准确率和步数上限遵守率。
@@ -62,6 +64,6 @@ LLM、Query-Aware 与 reranker chat/completions 使用 `httpx.AsyncClient` SSE�
 
 真实 Provider smoke（py312 + 本地 `.env`，标准 TLS 校验）：`post_chat_stream` 成功接收 SSE 数据块、聚合 `delta.content` 并解析为 JSON 对象；`ProviderReranker.score_async` 成功返回两个候选分数（约 `0.9992`、`0.0010`）；`QueryAwareExtractor.aextract`（quote 为候选原文精确子串）、`aanswer_from_evidence`、`averify` 均返回合规 JSON。证书链校验正常：默认 SSL context 可正常校验证书链，OpenAI SDK、requests、urllib 均 HTTP 200，TLS verify 始终开启且代码显式拒绝 `verify=False`。本次将 `src/q3/llm.py` 中 `decide_action_async` 的 instruction 收紧为"observations 为空必须 `action=search`、不得凭常识作答"后，真实 CLI 首步不再抛 `ValueError: the first ReAct action must be search`；`src/q3/agent.py` 首步 search 硬检查保留兜底。
 
-修复 observation 信息流后，真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`）均产出预期状态：`差旅报销需要什么材料？` 返回 `completed`（答案带 1 条有效引用 D03，`verify` 通过）；`报销期限多久？` 返回 `conflict_detected`（D01/D02 共 2 条引用）；`公司有住房补贴吗？` 返回 `insufficient_evidence`（0 条引用）。三组运行记录见 `examples/{requests,traces,results}/live_*.json`。修复前 clear-case 曾多次未返回 `completed`，根因是决策模型收不到已核验的答案与证据；修复只补齐 observation 信息，未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。完整 pytest 为 76 项（模型未下载时 75 passed、1 skipped）；离线 MockTransport 覆盖重试、取消、client 生命周期与异步 ReAct 顺序。真实模型输出仍有随机性，上述为单次实测记录，不代表在线答案准确率已系统评测。
+修复 observation 信息流后，真实 CLI 三段端到端（`--llm openai-compatible --reranker provider --query-aware provider`）均产出预期状态：`差旅报销需要什么材料？` 返回 `completed`（答案带 1 条有效引用 D03，`verify` 通过）；`报销期限多久？` 返回 `conflict_detected`（D01/D02 共 2 条引用）；`公司有住房补贴吗？` 返回 `insufficient_evidence`（0 条引用）。三组运行记录见 `examples/{requests,traces,results}/live_*.json`。修复前 clear-case 曾多次未返回 `completed`，根因是决策模型收不到已核验的答案与证据；修复只补齐 observation 信息，未放宽 quote 精确子串与 `citation_indices` 校验、未加 markdown fence 兼容层、未静默回退 Mock 或伪造 completed。完整 pytest 为 79 项（模型未下载时 78 passed、1 skipped）；离线 MockTransport 覆盖重试、取消、client 生命周期与异步 ReAct 顺序。真实模型输出仍有随机性，上述为单次实测记录，不代表在线答案准确率已系统评测。
 
-冲突检测目前依赖 token/规则 heuristic，不能视为通用语义冲突识别。仅流式空闲超时与瞬时传输错误会重试（最多额外 3 次）；HTTP 4xx、schema/JSON 错误及模型协议违规不重试，异常直接向 CLI 抛出，也不转换为 structured failed `Answer`。`max_steps` 正值校验及 evaluator 步数配置一致性仍有改进空间。
+冲突判定由作答模型在指令约束下给出（结构化 `conflict` 字段），`detect_conflict` 仅作为启发式提示写入 trace；Mock 侧是同语义的确定性规则，不等同于通用语义理解。仅流式空闲超时与瞬时传输错误会重试（最多额外 3 次）；HTTP 4xx、schema/JSON 错误及模型协议违规不重试，异常直接向 CLI 抛出，也不转换为 structured failed `Answer`。`max_steps` 正值校验及 evaluator 步数配置一致性仍有改进空间。

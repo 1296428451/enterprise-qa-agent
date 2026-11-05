@@ -8,7 +8,8 @@ from .async_provider import run_sync
 from .llm import MockLLM
 from .models import Answer, Chunk
 from .query_aware import MockQueryAwareExtractor
-from .retrieval import EvidenceSelector, MockJevReranker, detect_conflict, hybrid_candidates, merge_candidates
+from .retrieval import (EvidenceSelector, MockJevReranker, detect_conflict, hybrid_candidates,
+                       merge_candidates)
 
 
 class EnterpriseQA:
@@ -37,8 +38,9 @@ class EnterpriseQA:
         candidates = merge_candidates(groups, self.candidate_limit)
         trace.append({"action": "hybrid_retrieve", "result": f"{len(candidates)} candidates"})
         ranked = await self.reranker.ascore(question, candidates) if hasattr(self.reranker, "ascore") else await self.reranker.score_async(question, candidates) if hasattr(self.reranker, "score_async") else self.reranker.score(question, candidates)
+        trace.append({"action": "rerank", "result": f"{len(ranked)} ranked"})
         top_k = ranked[:self.rerank_top]
-        trace.append({"action": "rerank", "result": f"{len(ranked)} ranked, top {len(top_k)} selected"})
+        trace.append({"action": "rerank_top", "result": f"top {len(top_k)} selected"})
         extraction = await self.extractor.aextract(question, top_k) if hasattr(self.extractor, "aextract") else await self.extractor.extract_async(question, top_k) if hasattr(self.extractor, "extract_async") else self.extractor.extract(question, top_k)
         trace.append({"action": "query_aware_extract",
                       "result": f"{extraction.candidates_with_evidence}/{extraction.candidates_in} candidates have evidence",
@@ -51,7 +53,9 @@ class EnterpriseQA:
                           {"candidate_count": 0, "selected_count": 0}, {"verified": False})
         extracted_items = [top_k[e.index - 1] for e in extraction.evidence
                            if e.relevance != "none" and e.quote and 1 <= e.index <= len(top_k)]
-        conflict = detect_conflict(extracted_items or evidence)
+        conflict_hint = detect_conflict(extracted_items or evidence)
+        trace.append({"action": "detect_conflict",
+                      "result": "heuristic: conflict" if conflict_hint else "heuristic: none"})
         versions_by_document = {}
         for item in (extracted_items or evidence):
             versions_by_document.setdefault(item.chunk.document_id, set()).add(item.chunk.version)
@@ -61,11 +65,6 @@ class EnterpriseQA:
             return Answer("version_conflict", None, citations, ["同一文档检索到多个版本，无法自动选择"], trace,
                           {"candidate_count": len(candidates), "selected_count": len(evidence)},
                           {"verified": False, "conflict_detected": True, "version_conflict": True, "action": "ask_user"})
-        if conflict:
-            trace.append({"action": "verify_answer", "result": "conflict detected; ask user"})
-            return Answer("conflict_detected", None, citations, ["检索到的制度内容存在冲突"], trace,
-                          {"candidate_count": len(candidates), "selected_count": len(evidence)},
-                          {"verified": False, "conflict_detected": True, "action": "ask_user"})
         answer_input = extraction.to_answer_input()
         extracted_citations = [
             {"document_id": e.source_id, "chunk_id": e.chunk_id,
@@ -79,6 +78,13 @@ class EnterpriseQA:
                           {"candidate_count": len(candidates), "selected_count": len(evidence),
                            "extracted_evidence_count": 0, "answer_input": answer_input}, {"verified": False})
         generated = await self.llm.aanswer_from_evidence(question, answer_input) if hasattr(self.llm, "aanswer_from_evidence") else await self.llm.answer_from_evidence_async(question, answer_input) if hasattr(self.llm, "answer_from_evidence_async") else self.llm.answer_from_evidence(question, answer_input)
+        if generated.get("conflict"):
+            trace.append({"action": "answer_from_evidence",
+                          "result": "model reports conflicting clauses; ask user"})
+            return Answer("conflict_detected", None, citations, ["检索到的制度内容存在冲突"], trace,
+                          {"candidate_count": len(candidates), "selected_count": len(evidence),
+                           "extracted_evidence_count": extraction.candidates_with_evidence},
+                          {"verified": False, "conflict_detected": True, "action": "ask_user"})
         answer_text = generated.get("answer", "")
         cited_indices = generated.get("citation_indices")
         if (not isinstance(cited_indices, list) or not cited_indices

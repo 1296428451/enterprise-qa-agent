@@ -1,7 +1,7 @@
 # 第三题方案：企业知识问答 Agent
 
 ## 调用流程
-请求解析 -> ReAct planner 决定检索动作 -> 混合候选（BM25 + mock token-overlap semantic signal） -> 候选合并 -> 重排 -> query-aware 证据抽取 -> 证据选择 -> 版本/内容冲突检查 -> 基于引用生成答案 -> 引用核验 -> 返回结果与 trace。
+请求解析 -> ReAct planner 决定检索动作 -> 混合候选（BM25 + mock token-overlap semantic signal） -> 候选合并 -> 重排 -> query-aware 证据抽取（证据带适用范围 Scope） -> 证据选择 -> 版本冲突检查 -> 一次作答调用（同时判断范围优先或真冲突） -> 引用核验 -> 返回结果与 trace。
 
 ```text
 Question

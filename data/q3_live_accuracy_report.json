@@ -95,9 +95,9 @@
     }
   ],
   "pytest": {
-    "collected": 76,
-    "passed_with_embedding_model": 76,
-    "passed_without_embedding_model": 75,
+    "collected": 79,
+    "passed_with_embedding_model": 79,
+    "passed_without_embedding_model": 78,
     "skipped_without_embedding_model": 1,
     "skip_reason": "embedding smoke test is skipped when models/all-MiniLM-L6-v2 is not downloaded; `python -m src.q3.download_model` fetches it"
   }

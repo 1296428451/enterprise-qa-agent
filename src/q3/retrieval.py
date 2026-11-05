@@ -8,6 +8,8 @@ from .models import Chunk, ScoredChunk
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+|[\u4e00-\u9fff]")
 _STOPWORDS = set("的了和是我你他她它在有无要什么是否公司提供可以普通需要应该最晚吗？员工" )
+_SCOPE_RE = re.compile(r"适用于([^。；;，,\n]+)")
+_GENERAL_SCOPE = ("所有", "全体", "全部", "全公司", "各部门", "通用", "不限")
 
 
 def tokenize(text: str) -> list[str]:
@@ -109,6 +111,12 @@ class EvidenceSelector:
     def citations(items: list[ScoredChunk]) -> list[dict[str, str]]:
         return [{"document_id": item.chunk.document_id, "chunk_id": item.chunk.chunk_id,
                  "version": item.chunk.version, "quote": item.chunk.text} for item in items]
+
+
+def scope_phrase(text: str) -> str:
+    """Return the applicability phrase declared by a clause, if any."""
+    match = _SCOPE_RE.search(text)
+    return match.group(1).strip() if match else ""
 
 
 def detect_conflict(items: list[ScoredChunk]) -> bool:
