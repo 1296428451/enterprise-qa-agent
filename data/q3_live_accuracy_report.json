@@ -1,0 +1,78 @@
+{
+  "run_metadata": {
+    "project": "enterprise-qa-agent",
+    "database": "data/knowledge.db",
+    "runtime_mode": "offline_mock",
+    "live_provider_status": {
+      "llm": "blocked_tls_certificate_expired",
+      "reranker": "connected_but_unexpected_response_schema",
+      "certificate_verification_disabled": false
+    },
+    "notes": [
+      "Live LLM call could not complete because the configured endpoint's TLS certificate is expired.",
+      "Reranker endpoint responded without the expected data array; no reranker score was accepted.",
+      "The live-provider overall answer accuracy is not measurable in this run; accuracy metrics below are from the local offline pipeline."
+    ]
+  },
+  "dataset": {
+    "total_cases": 10,
+    "answerable_cases": 5,
+    "conflict_cases": 3,
+    "unanswerable_cases": 2
+  },
+  "metrics": {
+    "status_accuracy": {
+      "value": 1.0,
+      "correct": 10,
+      "total": 10,
+      "definition": "Fraction of cases whose returned status matches the expected status (completed, conflict_detected, or insufficient_evidence)."
+    },
+    "query_retrieval_exact_accuracy": {
+      "value": 0.9,
+      "correct": 9,
+      "total": 10,
+      "definition": "Fraction of questions where the set of cited document IDs exactly equals the expected evidence document set. Penalizes both missed evidence and irrelevant extra documents."
+    },
+    "document_precision_macro": {
+      "value": 0.9667,
+      "definition": "For each question, relevant cited documents divided by all cited documents; then averaged across questions. Measures citation noise."
+    },
+    "document_recall_macro": {
+      "value": 1.0,
+      "definition": "For each question, retrieved relevant documents divided by all expected relevant documents; then averaged. Empty expected sets receive 1 only when no documents are cited."
+    },
+    "document_f1_macro": {
+      "value": 0.98,
+      "definition": "Harmonic mean of per-question document precision and recall, averaged across questions."
+    },
+    "answer_exact_match": {
+      "value": 1.0,
+      "correct": 5,
+      "total": 5,
+      "definition": "For answerable cases only, exact string match between generated answer and the reference answer grounded in the local source chunk."
+    },
+    "correct_abstention_accuracy": {
+      "value": 1.0,
+      "correct": 5,
+      "total": 5,
+      "definition": "For conflict or unanswerable cases, verifies the expected non-answer status and that no answer text was emitted."
+    }
+  },
+  "findings": [
+    {
+      "case_id": "q3-05",
+      "question": "报销最晚什么时候提交？",
+      "expected_documents": ["D01", "D02"],
+      "actual_documents": ["D01", "D02", "D03"],
+      "status": "conflict_detected",
+      "document_precision": 0.6667,
+      "document_recall": 1.0,
+      "interpretation": "正确识别冲突并请求确认，但额外引用 D03，降低了精确检索率。"
+    }
+  ],
+  "pytest": {
+    "passed": 45,
+    "skipped": 1,
+    "skip_reason": "embedding smoke test requires FRAMES_EMBEDDING_MODEL in the current system Python environment"
+  }
+}

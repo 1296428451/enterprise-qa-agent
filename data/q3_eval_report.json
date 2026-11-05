@@ -47,7 +47,13 @@
         },
         {
           "action": "rerank",
-          "result": "2 ranked candidates"
+          "result": "2 ranked, top 2 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "2/2 candidates have evidence",
+          "compression_ratio": 0.71,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
@@ -81,6 +87,28 @@
       "correct_abstention": null,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "差旅报销需要什么材料？",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "completed",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "answer",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "已有可用证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
@@ -94,11 +122,21 @@
         },
         {
           "action": "rerank",
-          "result": "1 ranked candidates"
+          "result": "1 ranked, top 1 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "1/1 candidates have evidence",
+          "compression_ratio": 1.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
           "result": "1 evidence chunks"
+        },
+        {
+          "action": "answer_from_evidence",
+          "result": "generated answer with 1 citations"
         },
         {
           "action": "verify_answer",
@@ -128,6 +166,28 @@
       "correct_abstention": null,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "审批进度在哪里查看？",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "completed",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "answer",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "已有可用证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
@@ -141,11 +201,21 @@
         },
         {
           "action": "rerank",
-          "result": "1 ranked candidates"
+          "result": "1 ranked, top 1 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "1/1 candidates have evidence",
+          "compression_ratio": 1.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
           "result": "1 evidence chunks"
+        },
+        {
+          "action": "answer_from_evidence",
+          "result": "generated answer with 1 citations"
         },
         {
           "action": "verify_answer",
@@ -171,12 +241,45 @@
       "correct_abstention": true,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "公司是否提供住房补贴？",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "insufficient_evidence",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "search",
+          "query": "公司是否提供住房补贴？ 相关制度",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "insufficient_evidence",
+          "next_action_reason": "首次检索无证据，改写查询"
+        },
+        {
+          "step": 3,
+          "action": "insufficient_evidence",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "改写查询后仍无证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
-            "公司是否提供住房补贴？"
+            "公司是否提供住房补贴？ 相关制度"
           ],
-          "intent": "公司是否提供住房补贴？"
+          "intent": "公司是否提供住房补贴？ 相关制度"
         },
         {
           "action": "hybrid_retrieve",
@@ -184,7 +287,13 @@
         },
         {
           "action": "rerank",
-          "result": "0 ranked candidates"
+          "result": "0 ranked, top 0 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "0/0 candidates have evidence",
+          "compression_ratio": 0.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
@@ -230,7 +339,13 @@
         },
         {
           "action": "rerank",
-          "result": "3 ranked candidates"
+          "result": "3 ranked, top 3 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "3/3 candidates have evidence",
+          "compression_ratio": 0.78,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
@@ -264,6 +379,28 @@
       "correct_abstention": null,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "出差报销要准备哪些材料？",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "completed",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "answer",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "已有可用证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
@@ -277,11 +414,21 @@
         },
         {
           "action": "rerank",
-          "result": "1 ranked candidates"
+          "result": "1 ranked, top 1 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "1/1 candidates have evidence",
+          "compression_ratio": 1.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
           "result": "1 evidence chunks"
+        },
+        {
+          "action": "answer_from_evidence",
+          "result": "generated answer with 1 citations"
         },
         {
           "action": "verify_answer",
@@ -311,6 +458,28 @@
       "correct_abstention": null,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "我想查看自己的审批流程进度",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "completed",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "answer",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "已有可用证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
@@ -324,11 +493,21 @@
         },
         {
           "action": "rerank",
-          "result": "1 ranked candidates"
+          "result": "1 ranked, top 1 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "1/1 candidates have evidence",
+          "compression_ratio": 1.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
           "result": "1 evidence chunks"
+        },
+        {
+          "action": "answer_from_evidence",
+          "result": "generated answer with 1 citations"
         },
         {
           "action": "verify_answer",
@@ -373,7 +552,13 @@
         },
         {
           "action": "rerank",
-          "result": "3 ranked candidates"
+          "result": "3 ranked, top 3 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "3/3 candidates have evidence",
+          "compression_ratio": 0.78,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
@@ -403,12 +588,45 @@
       "correct_abstention": true,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "员工福利积分如何兑换？",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "insufficient_evidence",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "search",
+          "query": "员工福利积分如何兑换？ 相关制度",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "insufficient_evidence",
+          "next_action_reason": "首次检索无证据，改写查询"
+        },
+        {
+          "step": 3,
+          "action": "insufficient_evidence",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "改写查询后仍无证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
-            "员工福利积分如何兑换？"
+            "员工福利积分如何兑换？ 相关制度"
           ],
-          "intent": "员工福利积分如何兑换？"
+          "intent": "员工福利积分如何兑换？ 相关制度"
         },
         {
           "action": "hybrid_retrieve",
@@ -416,7 +634,13 @@
         },
         {
           "action": "rerank",
-          "result": "0 ranked candidates"
+          "result": "0 ranked, top 0 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "0/0 candidates have evidence",
+          "compression_ratio": 0.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
@@ -446,6 +670,28 @@
       "correct_abstention": null,
       "trace": [
         {
+          "step": 1,
+          "action": "search",
+          "query": "发票和行程单是否是差旅报销材料？",
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "completed",
+          "next_action_reason": "开始检索"
+        },
+        {
+          "step": 2,
+          "action": "answer",
+          "query": null,
+          "tool_parameters": {
+            "candidate_limit": 200,
+            "rerank_top": 20
+          },
+          "result_summary": "",
+          "next_action_reason": "已有可用证据"
+        },
+        {
           "action": "plan_queries",
           "result": "queries planned",
           "queries": [
@@ -459,11 +705,21 @@
         },
         {
           "action": "rerank",
-          "result": "1 ranked candidates"
+          "result": "1 ranked, top 1 selected"
+        },
+        {
+          "action": "query_aware_extract",
+          "result": "1/1 candidates have evidence",
+          "compression_ratio": 1.0,
+          "note": "mock: removed sentences with low question-token overlap"
         },
         {
           "action": "select_evidence",
           "result": "1 evidence chunks"
+        },
+        {
+          "action": "answer_from_evidence",
+          "result": "generated answer with 1 citations"
         },
         {
           "action": "verify_answer",

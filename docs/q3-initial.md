@@ -5,7 +5,7 @@
 ## 企业问答 CLI
 
 ```bash
-python -m unittest discover -s test -v
+python -m pytest test/ -v
 python src/q3/cli.py --question "差旅报销需要什么材料？"
 python src/q3/cli.py --input examples/requests/q3_conflict.json
 ```
@@ -14,7 +14,7 @@ python src/q3/cli.py --input examples/requests/q3_conflict.json
 
 ## 模型状态
 
-本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。Reranker 可通过 CLI 的 `--reranker provider` 显式启用 provider adapter；真实 LLM 可通过 `--llm openai-compatible` 启用 planner/verifier。两者默认仍使用离线 Mock，不发网络请求；需要配置相应环境变量。接口已通过模拟 HTTP 的单测，但本机未配置 provider 凭据，因此本轮未验证真实服务调用。小于 1B 的本地 reranker 权重仍未下载并启用。
+本地 `all-MiniLM-L6-v2` embedding 已在 `py312` 下生成 384 维归一化向量并用于 FAISS。Reranker 可通过 CLI 的 `--reranker provider` 显式启用 provider adapter；真实 LLM 可通过 `--llm openai-compatible` 启用 planner/verifier。两者默认仍使用离线 Mock，不发网络请求；需要配置相应环境变量。接口已通过模拟 HTTP 的单测。
 
 ## 合成问答专项评测
 
@@ -24,6 +24,25 @@ python src/q3/evaluate.py --cases data/q3_eval_cases.json --db data/knowledge.db
 
 最近一次 10 条专项评测结果：`status_accuracy=1.00`、`query_retrieval_accuracy=0.90`、`document_precision_macro=0.9667`、`document_recall_macro=1.00`、`document_f1_macro=0.9800`、`answer_exact_match_accuracy=1.00`（5 条可回答问题）、`correct_abstention_accuracy=1.00`（5 条冲突/不可回答问题）。逐题报告在 `data/q3_eval_report.json`。
 
+## ReAct 题库外评测
+
+```bash
+python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json
+```
+
+该专项覆盖题库外奥运会问题、住房补贴问题和明确可答问题，检查是否改写查询、是否遵守最大步数并在证据不足时拒答。最新结果为状态准确率 1.00、问题级文档检索准确率 1.00、步数上限遵守率 1.00。它验证本地 Mock 的有界流程，不代表真实 LLM 决策质量。
+
+## Provider 联调状态
+
+已使用项目 `.env` 尝试真实 provider 联调，但本轮未将失败请求回退为 Mock：
+
+- LLM provider：TLS 握手失败，服务端证书已过期；
+- Reranker provider：请求返回内容缺少预期的 `data` 数组，系统明确报 provider schema 错误；
+- 未关闭 TLS 证书校验，未把异常结果计入真实模型准确率；
+- 详细记录见 `data/q3_live_accuracy_report.json`。
+
+因此当前可报告的准确率是离线 Mock + 本地知识库评测，不应表述为真实在线 LLM 准确率。修复 provider 证书和响应格式后，再单独重跑真实模型评测。
+
 ## FRAMES title-only gold-link proxy
 
 官方 test split 包含 824 个问题、2,636 个 gold-link occurrences、2,507 个去重原始 gold URL 和 2,507 个候选列原始 URL。规范化后有 2,475 个候选文章 ID；4 个唯一 URL 因缺 scheme、非 Wikipedia host 或 `Special:Search` 被排除。数据及本地 hash 见 `data/external/frames_manifest.json`。
@@ -32,7 +51,7 @@ python src/q3/evaluate.py --cases data/q3_eval_cases.json --db data/knowledge.db
 
 ```powershell
 $env:FRAMES_EMBEDDING_MODEL="path/to/all-MiniLM-L6-v2"
-python -m unittest discover -s test -v
+python -m pytest test/ -v
 python src/q3/evaluate_frames.py --method rrf --model $env:FRAMES_EMBEDDING_MODEL --output data/external/frames_eval_report.json
 ```
 

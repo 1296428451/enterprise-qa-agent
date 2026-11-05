@@ -25,10 +25,13 @@ class ProviderReranker:
         request = Request(self.base_url, data=payload, headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.api_key})
         with urlopen(request, timeout=60) as response:
             body = json.loads(response.read().decode("utf-8"))
-        if len(body["data"]) != len(items):
+        data = body.get("data")
+        if not isinstance(data, list):
+            raise ValueError("reranker response must contain a data array")
+        if len(data) != len(items):
             raise ValueError("reranker response must include one score per candidate")
         scores = [None] * len(items)
-        for entry in body["data"]:
+        for entry in data:
             index = int(entry["index"])
             if index < 0 or index >= len(items) or scores[index] is not None:
                 raise ValueError(f"reranker returned invalid or duplicate document index: {index}")
