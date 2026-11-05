@@ -64,14 +64,14 @@ def test_openai_compatible_llm_parses_and_validates_react_actions():
         decision = llm.decide_action("需要什么材料？", [])
     assert (decision.action, decision.query, decision.reason) == ("search", "差旅报销材料", "改写查询")
 
-    for payload in (
-        {"action": "search"},
-        {"action": "search", "query": "  "},
-        {"action": "stop", "reason": "结束"},
-        {"action": "unknown"},
+    for payload, message in (
+        ({"action": "search"}, "requires a non-empty query"),
+        ({"action": "search", "query": "  "}, "requires a non-empty query"),
+        ({"action": "stop", "reason": "结束"}, "action must be search, answer, ask_user, or insufficient_evidence"),
+        ({"action": "unknown"}, "action must be search, answer, ask_user, or insufficient_evidence"),
     ):
         with patch.object(llm, "_complete_json", return_value=payload):
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match=message):
                 llm.decide_action("问题", [])
 
 
