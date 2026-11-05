@@ -87,5 +87,26 @@ python src/q3/evaluate_frames.py --method rrf --model "path/to/all-MiniLM-L6-v2"
 
 示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 仅保留在仓库历史；当前可运行主项目和验收材料均为第三题。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
 
+## 凭证安全与提交前自检
+
+`.env` 与 `provider.txt` 保存真实 API Key，二者均不纳入 Git（见 `.gitignore`）；仓库只提供 `.env.example` 占位模板。代码只通过环境变量读取凭证，不会写入日志、trace、示例或报告。TLS 证书校验始终开启，禁止关闭。
+
+提交或推送前可运行自检脚本，它会扫描**全部 Git 历史对象**（含 blob、commit/tag 消息、悬空对象）、工作区与暂存区，检查本地配置中的凭证值以及常见凭证格式（`sk-`、`gh*_`、JWT-like、Bearer 字面量、赋值式 api key）：
+
+```bash
+python scripts/check_secrets.py                 # 全历史 + 工作区，退出码 0 表示干净
+python scripts/check_secrets.py --staged-only   # 仅暂存区，适合作为 pre-commit 钩子
+```
+
+脚本只在内存中比对，输出仅含 SHA-256 短标签、对象短 id 与文件路径，**不打印任何凭证字符、片段、完整 URL 或主机名**；命中凭证时退出码为 1。非凭证的公开模型名（如 reranker 模型 ID）会作为 INFO 单独列出，不算泄露。可选启用本地钩子：
+
+```bash
+git config core.hooksPath scripts
+```
+
+（钩子位于 `scripts/hooks/pre-commit`，不会随仓库自动生效，需执行上面的配置命令。）
+
+注意：`git` 历史一旦推送到远端便无法靠后续提交彻底抹除，若 `.env` 曾泄露到对话或日志，应先在 Provider 控制台轮换该 Key，再确认历史干净后推送。
+
 ## 提交信息
 题号：第三题。GitHub 仓库地址与最终提交 SHA 属提交前最后更新字段，应在实际推送/提交前按最终仓库信息填写，文档不硬编码未来 SHA。当前本地 HEAD 仅代表编辑开始前基线，不作为最终提交 SHA。

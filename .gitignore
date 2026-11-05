@@ -4,7 +4,20 @@ AGENTS.md
 __pycache__/
 *.py[cod]
 .venv/
+
+# Credentials: never commit real keys or endpoint config files.
 .env
+.env.*
+!.env.example
+provider.txt
+*_key.txt
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
 data/drafts.json
 data/*.lock
 data/external/frames-benchmark/.cache/
