@@ -95,8 +95,10 @@
     }
   ],
   "pytest": {
-    "passed": 65,
-    "skipped": 1,
-    "skip_reason": "embedding smoke test requires FRAMES_EMBEDDING_MODEL in the current system Python environment"
+    "collected": 75,
+    "passed_with_embedding_model": 75,
+    "passed_without_embedding_model": 74,
+    "skipped_without_embedding_model": 1,
+    "skip_reason": "embedding smoke test is skipped when models/all-MiniLM-L6-v2 is not downloaded; `python -m src.q3.download_model` fetches it"
   }
 }

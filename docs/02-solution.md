@@ -23,10 +23,10 @@ Question
 - `src/q3/retrieval.py`：混合候选、重排适配、证据选择和冲突检测。
 - `src/q3/llm.py`、`src/q3/provider_reranker.py`、`src/q3/query_aware.py`：Mock/provider 接口。
 - `src/q3/cli.py`、`src/q3/manage.py`：问答与版本化知识库导入管理。
-- `data/`：合成企业制度、评测案例和可再生成报告；SQLite/index 属本地运行状态。
+- `data/`：合成企业制度、评测案例与可再生成报告；`data/knowledge.db` 与 `data/q3_vectors.faiss` 是随仓库提交的只读快照，重新导入或重建产生的变更属于本地运行态。
 
 ## 关键边界
 缺少引用证据时不输出答案；冲突或同文档多版本不自动选边；provider 配置错误/请求失败直接暴露，不静默降级为 Mock；密钥只从环境变量读取。当前示例 trace 明确标注 `mocked provider protocol / 非在线真实模型`。
 
 ## 已知限制
-语义检索依赖显式配置的本地模型或可用 provider；离线默认结果不代表生产效果。当前评测使用本地合成文档/固定案例，样本规模有限。向量索引刷新、生产并发与鉴权不属于本次交付范围。FRAMES title-only proxy 仅评估 query/article title 链接匹配，不能代表全文 RAG 或答案质量。
+语义检索需要可用的 embedding 模型：默认自动下载到 `models/all-MiniLM-L6-v2`，也可用 `--model` 指向本地目录或其它 hub id，完全离线时需提前放置权重；离线默认结果不代表生产效果。当前评测使用本地合成文档/固定案例，样本规模有限。向量索引刷新、生产并发与鉴权不属于本次交付范围。FRAMES title-only proxy 仅评估 query/article title 链接匹配，不能代表全文 RAG 或答案质量。

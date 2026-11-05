@@ -1,13 +1,13 @@
 # 第三题评测与验收
 
 ## 测试命令
-从仓库任意目录执行：
+从仓库根目录执行（`tests/` 是相对路径，在子目录或仓库外运行会收集不到用例）：
 
 ```bash
 python -m pytest tests/ -q
 ```
 
-Embedding 冒烟测试在未设置 `FRAMES_EMBEDDING_MODEL` 时会跳过；这不等同于向量模型集成验收。
+Embedding 冒烟测试在 `models/all-MiniLM-L6-v2` 未下载时自动跳过（`python -m src.q3.download_model` 可下载，`--model` 或 `FRAMES_EMBEDDING_MODEL` 可改路径）；跳过不等同于向量模型集成验收。
 
 ## 可复现示例
 请求与实际 CLI 输出/trace 位于 `examples/requests/`、`examples/traces/`：
@@ -42,7 +42,7 @@ python src/q3/cli.py --input examples/requests/missing.json
 | 文档冲突 | `examples/results/live_conflict.json`、`data/q3_eval_cases.json` | `conflict_detected`，列出 D01/D02 两条原文并要求确认，不选边 |
 | 资料外问题 | `examples/results/live_missing.json`、`examples/traces/missing.json` | `insufficient_evidence`，0 引用，不编造 |
 | 改写后的相似问题 | `examples/traces/live_missing.json`、`examples/traces/missing.json`、`data/q3_eval_cases.json` | trace 记录多次查询改写；评测含「出差报销要准备哪些材料？」等改写题 |
-| 上下文追问 | `examples/requests/q3_clear.json` | 携带 `conversation_history`，`answer(question, history)` 把历史传入 planner/action/verify |
+| 上下文追问 | `examples/requests/q3_clear.json` | 携带 `conversation_history`；`answer(question, history)` 把历史传入 planner 与 ReAct 决策。核验阶段只接收问题、答案与引用，不接收 history（按代码实际情况写明） |
 | 工具失败 | `examples/requests/provider_failure.json`、`examples/provider_invalid_action_response.json`、`examples/traces/provider_failure.json` | 回放非法 action 响应，记录实际异常输出与失败边界。该组在首个 action 校验处即抛异常终止，因此 `trace` 为空——异常终止路径没有 ReAct 步骤，属如实披露的限制 |
 
 注：`live_conflict` 属于冲突早返回分支，本版已把外层 ReAct 决策步骤合并进返回 trace（`react_steps` 含 step 1 `search`），保证该路径同样可审计。

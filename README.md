@@ -45,7 +45,7 @@ python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebui
 python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
 ```
 
-新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 仅重建 SQLite 文本索引，不代表 FAISS 向量索引刷新。
+新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 只在 `document_chunks(text)` 上建一个普通 B-tree 索引（返回 `index_type=sqlite_text`），不改变检索方式，也不是 FAISS 向量索引刷新——CLI 仍把全部 chunk 读入内存做 BM25 与 token-overlap 召回。
 
 `data/knowledge.db` 与 `data/q3_vectors.faiss` 是随仓库提交的只读数据快照，保证开箱即可复跑上面所有命令；重新导入或重建索引产生的变更属于本地运行态，提交前请先备份或改用副本，例如 `python src/q3/manage.py --input docs.json --db /tmp/kb.db --rebuild-index`，以免污染快照。
 
@@ -53,7 +53,7 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 
 循环默认最多 5 步，可在 `config.json` 的 `runtime.max_steps`、输入 JSON 的 `config.max_steps` 或 CLI 的 `--max-steps` 调整。每轮根据工具观察选择 `search`、`answer`、`ask_user` 或 `insufficient_evidence`。默认 Mock 的 action 与查询改写由确定性规则生成，首次无证据时固定追加“相关制度”；只有 `--llm openai-compatible` 才启用 provider 控制的 action 选择。搜索会执行混合召回、重排和 query-aware 证据抽取；冲突或多版本证据请求用户确认，达到步数上限则停止。
 
-`test_q3.py` 中包含模拟 provider 的集成测试，验证 provider 决策下 `search -> observation -> rewritten search -> answer` 流程；它不是在线真实模型测试。当前 Provider chat/completions 使用 `httpx.AsyncClient` 的 `stream=true` SSE：聚合 `delta.content` 后解析 JSON；相邻数据块空闲超过 30 秒时最多额外重试 3 次（首次 + 3 次重试，共 4 次）并丢弃 partial；HTTP 4xx、JSON、schema 错误不重试；`CancelledError` 原样传播；TLS 校验始终开启，禁止关闭验证。
+`tests/test_q3.py` 中包含模拟 provider 的集成测试，验证 provider 决策下 `search -> observation -> rewritten search -> answer` 流程；它不是在线真实模型测试。当前 Provider chat/completions 使用 `httpx.AsyncClient` 的 `stream=true` SSE：聚合 `delta.content` 后解析 JSON；相邻数据块空闲超过 30 秒时最多额外重试 3 次（首次 + 3 次重试，共 4 次）并丢弃 partial；HTTP 4xx、JSON、schema 错误不重试；`CancelledError` 原样传播；TLS 校验始终开启，禁止关闭验证。
 
 真实 Provider smoke（py312 + 本地 `.env`，标准 TLS 校验）：`post_chat_stream` 成功收到 SSE 数据块、聚合 `delta.content` 并解析出 JSON 对象；`ProviderReranker.score_async` 成功对两个候选返回分数（约 `0.9992`、`0.0010`）；`QueryAwareExtractor.aextract`（quote 为候选原文精确子串）、`aanswer_from_evidence`、`averify` 均返回合规 JSON。证书链校验正常：默认 SSL context、OpenAI SDK、requests、urllib 均可成功调用，TLS verify 始终开启且禁止关闭。本次将 `src/q3/llm.py` 中 `decide_action_async` 的 instruction 收紧为"observations 为空必须 `action=search`、不得凭常识作答"后，真实 CLI 首步不再抛 `ValueError: the first ReAct action must be search`；`src/q3/agent.py` 的首步 search 硬检查保留作为兜底。
 
@@ -109,13 +109,13 @@ python src/q3/cli.py --question "差旅报销需要什么材料？" \
 | `live_conflict` | 报销期限存在两条冲突制度 | 冲突检测后 `ask_user` | `conflict_detected`，2 条引用 |
 | `live_missing` | 题库外住房补贴 | 连续 5 次 `search` 改写查询后触顶 | `insufficient_evidence`，0 引用 |
 
-三条路径体现模型依据不同工具观察调整动作；`traces/*.json` 的 `react_steps` 记录 step、action、query、tool_parameters、result_summary、next_action_reason，`pipeline_trace` 记录 plan/检索/rerank/抽取/答案/核验。
+三条路径体现模型依据不同工具观察调整动作；`traces/*.json` 的 `react_steps` 记录 step、action、query、tool_parameters、result_summary、next_action_reason，`pipeline_trace` 按实际经过的阶段记录 plan/检索/rerank/抽取/选证/作答/核验（`live_conflict` 在冲突处早返回，因此没有作答阶段）。
 
 示例 trace 标注为 `mocked provider protocol / 非在线真实模型`；失败 trace 记录 provider 阻断，不包含凭证。第一题素材排期 Agent 的历史代码仍以 `src/agent.py`、`src/api.py`、`src/cli.py`、`data/assets.json`、`data/rules.json`、`data/schedule.json`、`tests/test_agent.py`、`tests/test_persistence.py` 形式留在当前仓库树中，**不属于第三题验收主体**；`pytest` 收集 75 项，其中 10 项为上述第一题历史用例、65 项属第三题；第三题内 1 项 embedding 冒烟在模型未下载时自动跳过，故显示 74 passed / 1 skipped。固定数据、源代码、测试、示例及评测材料纳入 Git；`.agents/`、`AGENTS.md`、`plan.md`、密钥、个人模型文件和运行缓存不纳入 Git。
 
 ## 凭证安全与提交前自检
 
-`.env` 与 `provider.txt` 保存真实 API Key，二者均不纳入 Git（见 `.gitignore`）；仓库只提供 `.env.example` 占位模板。代码只通过环境变量读取凭证，不会写入日志、trace、示例或报告。TLS 证书校验始终开启，禁止关闭。
+`.env`（仓库根）与 `provider.txt`（仓库上一级目录，仅本地存在）保存真实 API Key，二者均不纳入 Git（见 `.gitignore`）；仓库只提供 `.env.example` 占位模板。代码只通过环境变量读取凭证，不会写入日志、trace、示例或报告。TLS 证书校验始终开启，禁止关闭。
 
 提交或推送前可运行自检脚本，它会扫描**全部 Git 历史对象**（含 blob、commit/tag 消息、悬空对象）、工作区与暂存区，检查本地配置中的凭证值以及常见凭证格式（`sk-`、`gh*_`、JWT-like、Bearer 字面量、赋值式 api key）：
 
