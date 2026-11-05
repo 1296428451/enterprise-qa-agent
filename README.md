@@ -15,6 +15,8 @@ python -m pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
 
+`-q`：精简输出，只打印通过/失败汇总。
+
 Embedding / FAISS 只用于可选索引与评测，主链不需要。要用时先装可选依赖，模型默认放在仓库内的相对目录 `models/all-MiniLM-L6-v2`，缺失时自动下载（权重不入库）：
 
 ```bash
@@ -23,6 +25,8 @@ python -m src.q3.download_model     # 下载 sentence-transformers/all-MiniLM-L6
 python src/q3/build_index.py        # 不传 --model 时使用上面的默认目录
 pytest tests/test_embedding.py -v   # 模型缺失时该冒烟项自动 skip
 ```
+
+`download_model.py` 无必填参数；可选 `--destination`（仓库相对目录，默认 `models/all-MiniLM-L6-v2`）与 `--model-id`（Hugging Face 模型 id）。`build_index.py` 的 `--model` 省略时用上述默认目录，另有 `--documents`、`--index`、`--metadata` 可改输入与产物路径。`pytest -v` 打印每个用例名。
 
 `--model`（或环境变量 `FRAMES_EMBEDDING_MODEL`）可指向仓库内的其它相对路径或任意 Hugging Face model id；相对路径按仓库根解析，`--model models/my-model` 即 `<repo>/models/my-model`。已存在的目录一律以 `local_files_only=True` 加载。若直连 Hugging Face 不可用，设置镜像即可，例如 `HF_ENDPOINT=https://hf-mirror.com python -m src.q3.download_model`（`huggingface_hub` 的元数据接口被拦时，代码会退回按文件清单直连下载）；完全离线时把权重手工放到 `models/all-MiniLM-L6-v2` 即可。
 
@@ -39,11 +43,15 @@ python src/q3/manage.py --list --db data/knowledge.db
 python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebuild-index
 ```
 
+`--question`：问题文本，与 `--input` 二选一。`--input`：请求 JSON，可含 `question`、`conversation_history`、`config`。`manage.py --list`：按版本列出知识库，可加 `--document-id ID` 只看单个文档；`--db`：SQLite 路径。`--rebuild-index`：在 `document_chunks(text)` 上建普通 B-tree，不改变检索方式。
+
 默认语义候选由 `MockSemanticRetriever` 以 token overlap 计算；这不是实际 dense embedding 或 FAISS 检索。当前 CLI 没有创建/注入 FAISS semantic retriever。FAISS 仅作为可选索引/评测工具，不在 CLI 在线问答主链。BM25 与 mock token-overlap 共同提供离线候选信号。默认使用确定性离线 Mock 验证检索控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。当前 Provider 网络适配使用 `httpx.AsyncClient`，TLS 证书验证开启并配置显式超时。`EnterpriseQA.answer_async()` 可在已有 event loop 中调用；同步 CLI 的 `answer()` 仅作为兼容包装，在无运行中 event loop 时运行异步流程。OpenAI-compatible LLM 和 Query-Aware 均调用 `/chat/completions`；reranker 原生接口支持 `results`/`data`，并保留 chat `scores` 响应模式。
 
 ```bash
 python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
 ```
+
+`--llm openai-compatible`：改由真实 provider 决定 action 与查询改写（默认 `mock`）。`--reranker provider`：调用真实 reranker 打分（默认 `mock`）。
 
 新文档以版本方式追加；相同文档的多个版本同时命中时保留各版本引用并请求确认。`--rebuild-index` 只在 `document_chunks(text)` 上建一个普通 B-tree 索引（返回 `index_type=sqlite_text`），不改变检索方式，也不是 FAISS 向量索引刷新——CLI 仍把全部 chunk 读入内存做 BM25 与 token-overlap 召回。
 
@@ -63,6 +71,8 @@ python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible 
 python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/knowledge.db --output data/q3_react_eval_report.json
 ```
 
+`--cases`：评测用例 JSON；`--db`：知识库路径；`--output`：报告输出路径；可选 `--seed`：先导入额外文档再评测。
+
 题库外案例包括“今年奥运会中国有没有举行？”和住房补贴问题，验证无证据时会改写查询并在上限内拒答，不凭空生成答案。`data/react_seed_documents.json` 可用于先导入一条额外知识，再重新查询；导入过程通过 SQLite 版本管理保留。最新 ReAct 评测为 3/3 状态正确、3/3 文档集合正确、步数上限全部遵守。
 
 ## Query-Aware Evidence Extraction
@@ -73,6 +83,8 @@ python src/q3/evaluate_react.py --cases data/q3_react_eval_cases.json --db data/
 python src/q3/evaluate_query_aware.py --output data/q3_query_aware_report.json
 ```
 
+`--output`：报告输出路径（默认 `data/q3_query_aware_report.json`）。
+
 评测报告包含证据保留率、字符/token 压缩比和逐条提取结果。
 
 `data/external/frames_test.tsv` 是 FRAMES test split。因为当前无法取得 Wikipedia 正文，该评测只比较 query 与 article title 的匹配，属于 **title-only gold-link proxy**，不能解读为全文 RAG、答案准确率或多跳推理效果。报告与数据清单见 `data/external/frames_eval_report.json` 和 `data/external/frames_manifest.json`。
@@ -82,6 +94,8 @@ pytest tests/ -v
 python src/q3/evaluate_frames.py --method bm25
 python src/q3/evaluate_frames.py --method rrf --model models/all-MiniLM-L6-v2
 ```
+
+`--method`：`bm25` / `dense` / `rrf`；`--model`：dense 与 rrf 需要，省略时用 `models/` 默认目录并自动下载；另可加 `--batch-size`、`--data`、`--output` 改批大小、输入与报告路径。
 
 报告分别列出 BM25、Dense 和 RRF 的 link-micro/question-macro Recall@1/5/10、all-gold-hit、MRR@10、nDCG@10 及 reasoning-type 分层。分层是重叠多标签统计，不同类别样本数不可相加视为总样本数。
 
@@ -100,6 +114,8 @@ python src/q3/cli.py --question "差旅报销需要什么材料？" \
   --llm openai-compatible --reranker provider --query-aware provider \
   --max-steps 5 --save-run my_run
 ```
+
+`--query-aware provider`：用真实 provider 抽取证据（默认 `mock`）。`--max-steps`：ReAct 步数上限（默认取 `config.json` 的 `runtime.max_steps`，即 5）。`--save-run NAME`：把请求、过程与结果写入 `examples/{requests,traces,results}/NAME.json`；同名覆盖会在 stderr 提示。其余可选参数：`--candidate-limit`、`--max-evidence`、`--db`、`--provider-response-fixture`（回放本地 HTTP fixture）、`--admin-import`（批量导入文档）。
 
 落盘文件只记录 CLI 参数，不写任何环境变量值、API Key、endpoint 或主机名。已提交三条真实 Provider 运行记录：
 
@@ -124,11 +140,15 @@ python scripts/check_secrets.py                 # 全历史 + 工作区，退出
 python scripts/check_secrets.py --staged-only   # 仅暂存区，适合作为 pre-commit 钩子
 ```
 
+`--staged-only`：只检查暂存区，适合作为 pre-commit 钩子；省略时扫描全部 Git 历史、对象与工作区。
+
 脚本只在内存中比对，输出仅含 SHA-256 短标签、对象短 id 与文件路径，**不打印任何凭证字符、片段、完整 URL 或主机名**；命中凭证时退出码为 1。非凭证的公开模型名（如 reranker 模型 ID）会作为 INFO 单独列出，不算泄露。可选启用本地钩子：
 
 ```bash
 git config core.hooksPath scripts
 ```
+
+`core.hooksPath`：把 Git 钩子目录指向仓库内 `scripts/`，使 `scripts/hooks/pre-commit` 生效；不设置则钩子不会被调用。
 
 （钩子位于 `scripts/hooks/pre-commit`，不会随仓库自动生效，需执行上面的配置命令。）
 
