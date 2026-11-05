@@ -15,9 +15,10 @@ python -m pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
 
-Embedding 冒烟测试默认跳过；设置本地模型目录后可启用：
+Embedding 冒烟测试默认跳过；需要先装可选依赖（`requirements.txt` 中被注释的 `faiss-cpu`、`torch`、`transformers`、`sentencepiece`、`safetensors`），再设置本地模型目录：
 
 ```bash
+python -m pip install faiss-cpu torch transformers sentencepiece safetensors
 export FRAMES_EMBEDDING_MODEL=path/to/all-MiniLM-L6-v2
 pytest tests/test_embedding.py -v
 ```

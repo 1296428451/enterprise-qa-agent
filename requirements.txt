@@ -1,8 +1,12 @@
 numpy>=2.0,<3
-faiss-cpu>=1.8
-transformers>=4.45
-sentencepiece>=0.2
-safetensors>=0.4
 openai>=1.0
 httpx>=0.27
 pytest>=8.0
+
+# 可选：仅构建 FAISS 语义索引（src/q3/build_index.py）时需要，
+# 体量大且不在 CLI 在线问答主链，故默认不安装。
+# faiss-cpu>=1.8
+# torch>=2.0
+# transformers>=4.45
+# sentencepiece>=0.2
+# safetensors>=0.4
