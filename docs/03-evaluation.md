@@ -34,7 +34,9 @@ python src/q3/cli.py --input examples/requests/missing.json
 
 离线 10 例状态准确率为 1.00、文档集合 exact accuracy 为 0.90、宏平均 precision/recall/F1 为 0.9667/1.00/0.98、可回答题 exact match 为 1.00（5 例）、正确拒答准确率为 1.00（5 例）。ReAct 3 例报告中的状态准确率、文档集合准确率和步数约束均为 1.00。以上为本地确定性 Mock 与合成题库结果，不是在线模型表现。
 
-## Provider 直连 smoke 与限制
-使用仓库本地 `.env` 完成了 provider 直连 smoke。Reranker `Qwen/Qwen3-Reranker-0.6B` 成功对两个候选返回分数，约为 `0.9994` 和 `0.0010`；适配器支持 `results` 与 `data` 两种数组格式。LLM `gpt-6.1-sol` 请求因服务端 TLS 证书过期而失败，TLS 校验保持开启。依赖在线 LLM 的 Agent E2E（clear/conflict/unanswerable）未完成；因此真实 provider 整体答案准确率不可测，也不能声称 Agent 端到端在线验收通过。不得关闭 TLS 校验绕过问题，证书修复后需重跑在线验收。
+## Provider 异步联调与限制
+Provider 网络适配现统一使用 `httpx.AsyncClient`，TLS 证书验证开启且设置显式超时。异步直连 smoke 使用本地 `.env` 成功调用 LLM `gpt-6.1-sol`、Query-Aware extraction 与 reranker `Qwen/Qwen3-Reranker-0.6B`；reranker 对两个候选分数约为 `0.9995`、`0.0011`。无凭证或完整 URL 写入报告。
+
+`EnterpriseQA.answer_async()` 的异步 ReAct 流程由 MockTransport 集成测试验证；同步 `answer()`/CLI 作为兼容包装。真实 provider 驱动的 Agent clear/conflict/unanswerable E2E 与在线准确率尚未测量，MockTransport 成功不代表真实 Agent E2E 通过。
 
 冲突检测目前依赖 token/规则 heuristic，不能视为通用语义冲突识别。Provider 异常直接向 CLI 抛出，不重试，也不转换为 structured failed `Answer`。`max_steps` 正值校验及 evaluator 步数配置一致性仍有改进空间。

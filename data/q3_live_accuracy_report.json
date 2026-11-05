@@ -4,18 +4,20 @@
     "database": "data/knowledge.db",
     "runtime_mode": "offline_mock",
     "live_provider_status": {
-      "llm": "blocked_tls_certificate_expired",
-      "reranker": "connected_successfully_results_scores_received",
+      "llm": "async_httpx_smoke_success",
+      "llm_model": "gpt-6.1-sol",
+      "query_aware": "async_httpx_smoke_success",
+      "reranker": "async_httpx_smoke_success",
       "reranker_model": "Qwen/Qwen3-Reranker-0.6B",
-      "reranker_smoke_scores": [0.9994, 0.0010],
-      "agent_e2e": "not_run_llm_blocked",
+      "reranker_smoke_scores": [0.9995, 0.0011],
+      "agent_e2e": "async_mocktransport_test_passed; live provider end-to-end not run",
       "certificate_verification_disabled": false
     },
     "notes": [
-      "Live LLM call could not complete because the configured endpoint's TLS certificate is expired.",
-      "Reranker direct smoke succeeded for two candidates; scores are rounded in this report and no provider URL or credential is recorded.",
-      "Agent end-to-end clear/conflict/unanswerable cases were not run because the LLM provider was blocked.",
-      "The live-provider overall answer accuracy is not measurable in this run; accuracy metrics below are from the local offline pipeline."
+      "Async HTTPX direct smoke succeeded for LLM, Query-Aware extraction, and reranker using the local environment configuration; no credentials or full URLs are recorded.",
+      "Reranker returned two scores rounded here to four decimal places.",
+      "Async Agent ReAct control-flow is tested with MockTransport; real-provider Agent clear/conflict/unanswerable accuracy has not been measured.",
+      "The offline accuracy metrics below remain from the local deterministic pipeline and must not be interpreted as online-provider accuracy."
     ]
   },
   "dataset": {

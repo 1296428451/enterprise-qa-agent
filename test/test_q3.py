@@ -2,8 +2,9 @@ import io
 import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -48,17 +49,19 @@ def test_openai_compatible_llm_parses_plan_and_verification():
         {"queries": ["报销期限", "费用提交日期"], "intent": "查询报销截止时间"},
         {"verified": True, "unsupported_claims": [], "action": "answer"},
     ]
-    with patch.object(llm, "_complete_json", side_effect=responses) as complete:
+    async def complete(instruction, payload):
+        return responses.pop(0)
+    with patch.object(llm, "_complete_json_async", side_effect=complete) as mocked:
         plan = llm.plan("报销期限多久？", [{"role": "user", "content": "报销"}])
         verified = llm.verify("报销期限多久？", "30天", [{"document_id": "D01", "quote": "30天内"}])
     assert plan.queries == ["报销期限", "费用提交日期"]
     assert verified["verified"]
-    assert complete.call_count == 2
+    assert mocked.call_count == 2
 
 
 def test_openai_compatible_llm_parses_and_validates_react_actions():
     llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
-    with patch.object(llm, "_complete_json", return_value={
+    with patch.object(llm, "_complete_json_async", return_value={
         "action": "search", "query": "差旅报销材料", "reason": "改写查询"
     }):
         decision = llm.decide_action("需要什么材料？", [])
@@ -70,17 +73,17 @@ def test_openai_compatible_llm_parses_and_validates_react_actions():
         ({"action": "stop", "reason": "结束"}, "action must be search, answer, ask_user, or insufficient_evidence"),
         ({"action": "unknown"}, "action must be search, answer, ask_user, or insufficient_evidence"),
     ):
-        with patch.object(llm, "_complete_json", return_value=payload):
+        with patch.object(llm, "_complete_json_async", return_value=payload):
             with pytest.raises(ValueError, match=message):
                 llm.decide_action("问题", [])
 
 
 def test_openai_compatible_llm_rejects_malformed_plan():
     llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
-    with patch.object(llm, "_complete_json", return_value={"queries": [], "intent": "x"}):
+    with patch.object(llm, "_complete_json_async", return_value={"queries": [], "intent": "x"}):
         with pytest.raises(ValueError):
             llm.plan("报销期限多久？")
-    with patch.object(llm, "_complete_json", return_value={
+    with patch.object(llm, "_complete_json_async", return_value={
         "verified": True, "unsupported_claims": ["unsupported"], "action": "answer"
     }):
         with pytest.raises(ValueError):
@@ -88,22 +91,27 @@ def test_openai_compatible_llm_rejects_malformed_plan():
 
 
 def test_openai_compatible_llm_sends_auth_and_parses_http_json():
-    llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "secret-value")
-    response = io.BytesIO(json.dumps({"choices": [{"message": {"content": '{"queries":["报销"],"intent":"lookup"}'}}]}).encode())
-    with patch("src.q3.llm.urlopen", return_value=response) as open_url:
-        plan = llm.plan("报销期限？")
-    request = open_url.call_args.args[0]
-    assert request.get_header("Authorization") == "Bearer secret-value"
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers["authorization"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"queries":["报销"],"intent":"lookup"}'}}]})
+
+    llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "secret-value",
+                              transport=httpx.MockTransport(handler))
+    plan = llm.plan("报销期限？")
+    assert seen["url"] == "https://example.invalid/v1/chat/completions"
+    assert seen["auth"] == "Bearer secret-value"
     assert plan.queries == ["报销"]
 
 
 def test_provider_reranker_orders_candidates_by_provider_score(chunks):
     items = [ScoredChunk(chunks[0], bm25_score=0.4), ScoredChunk(chunks[1], bm25_score=0.8)]
     body = {"data": [{"index": 0, "relevance_score": 0.2}, {"index": 1, "relevance_score": 0.9}]}
-    response = io.BytesIO(json.dumps(body).encode())
-    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "secret-value")
-    with patch("src.q3.provider_reranker.urlopen", return_value=response):
-        ranked = reranker.score("报销期限", items)
+    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "secret-value",
+                                transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+    ranked = reranker.score("报销期限", items)
     assert ranked[0].chunk.chunk_id == chunks[1].chunk_id
     assert ranked[0].rerank_score == 0.9
 
@@ -114,37 +122,44 @@ def test_provider_reranker_supports_results_response_and_normalizes_native_endpo
         {"index": 1, "relevance_score": 0.9, "document": {"text": "kept by provider"}},
         {"index": 0, "relevance_score": 0.2},
     ]}
-    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "test-key")
-    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(json.dumps(body).encode())) as open_url:
-        ranked = reranker.score("报销期限", items)
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=body)
+
+    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "test-key",
+                                transport=httpx.MockTransport(handler))
+    ranked = reranker.score("报销期限", items)
     assert ranked[0].chunk.chunk_id == chunks[1].chunk_id
     assert ranked[0].rerank_score == 0.9
-    assert open_url.call_args.args[0].full_url == "https://example.invalid/v1/rerank"
+    assert seen["url"] == "https://example.invalid/v1/rerank"
+    assert seen["body"]["top_n"] == 2 and seen["body"]["return_documents"] is True
 
 
 def test_provider_reranker_supports_openai_chat_endpoint(chunks):
     items = [ScoredChunk(chunks[0]), ScoredChunk(chunks[1])]
     body = {"choices": [{"message": {"content": '{"scores":[0.1,0.8]}'}}]}
-    reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "secret-value")
-    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
-        ranked = reranker.score("报销期限", items)
+    reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "secret-value",
+                                transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+    ranked = reranker.score("报销期限", items)
     assert reranker.endpoint_type == "chat"
     assert ranked[0].chunk.chunk_id == chunks[1].chunk_id
 
 
 def test_provider_reranker_rejects_malformed_chat_scores(chunks):
-    reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "test-key")
     body = {"choices": [{"message": {"content": '{"scores":[true]}'}}]}
-    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
-        with pytest.raises(ValueError, match="scores"):
-            reranker.score("报销", [ScoredChunk(chunks[0])])
-
+    reranker = ProviderReranker("https://example.invalid/v1/chat/completions", "test-model", "secret-value",
+                                transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+    with pytest.raises(ValueError, match="scores"):
+        reranker.score("报销", [ScoredChunk(chunks[0])])
 
     item = ScoredChunk(chunks[0])
-    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "test-key")
-    with patch("src.q3.provider_reranker.urlopen", return_value=io.BytesIO(b'{"data":[]}')):
-        with pytest.raises(ValueError):
-            reranker.score("报销", [item])
+    reranker = ProviderReranker("https://example.invalid/v1/rerank", "test-model", "test-key",
+                                transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"data": []})))
+    with pytest.raises(ValueError):
+        reranker.score("报销", [item])
 
 
 def test_provider_reranker_builds_v1_endpoint():
@@ -249,7 +264,7 @@ def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
     ]
     observations_seen = []
 
-    def complete_json(instruction, payload):
+    async def complete(instruction, payload):
         if instruction.startswith("Choose exactly one action:"):
             observations_seen.append(json.loads(json.dumps(payload["observations"])))
             return decisions.pop(0)
@@ -261,7 +276,7 @@ def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
             return {"verified": True, "unsupported_claims": [], "action": "answer"}
         raise AssertionError(f"unexpected LLM instruction: {instruction}")
 
-    with patch.object(llm, "_complete_json", side_effect=complete_json) as complete:
+    with patch.object(llm, "_complete_json_async", side_effect=complete) as complete_mock:
         result = EnterpriseQA(chunks, llm=llm).answer("材料要求是什么？")
 
     assert result.status == "completed"
@@ -277,13 +292,13 @@ def test_react_provider_decisions_rewrite_empty_search_then_answer(chunks):
          {"query": "差旅报销需要什么材料？", "evidence_count": len(result.citations), "conflict": False,
           "status": "completed"}],
     ]
-    assert complete.call_count == 7
+    assert complete_mock.call_count == 7
 
 
 def test_react_first_action_must_be_search(chunks):
     llm = OpenAICompatibleLLM("https://example.invalid/v1", "test-model", "test-key")
     for action in ("answer", "ask_user", "insufficient_evidence"):
-        with patch.object(llm, "_complete_json", return_value={"action": action, "reason": "首步动作"}):
+        with patch.object(llm, "_complete_json_async", return_value={"action": action, "reason": "首步动作"}):
             with pytest.raises(ValueError, match="first ReAct action must be search"):
                 EnterpriseQA(chunks, llm=llm).answer("测试问题")
 

@@ -1,3 +1,5 @@
+import json
+import httpx
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -77,39 +79,39 @@ def test_extraction_result_formats_answer_input():
 
 
 def test_llm_extractor_parses_valid_response():
-    llm = OpenAICompatibleQueryAwareExtractor(
-        "https://example.invalid/v1", "test-model", "test-key")
     items = [ScoredChunk(_chunk("普通费用报销应在费用发生后 30 天内提交。", "D01", "D01-v1-c01"))]
     mock_response = {
         "evidence": [{"index": 1, "source_id": "D01", "relevance": "high",
                        "quote": "普通费用报销应在费用发生后 30 天内提交。", "key_info": "报销期限 30 天"}],
         "compression_note": "removed irrelevant clauses",
     }
-    with patch.object(llm, "_call", return_value=mock_response):
-        result = llm.extract("报销期限多久？", items)
+    llm = OpenAICompatibleQueryAwareExtractor(
+        "https://example.invalid/v1", "test-model", "test-key",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(mock_response)}}]})))
+    result = llm.extract("报销期限多久？", items)
     assert result.candidates_with_evidence == 1
     assert result.evidence[0].relevance == "high"
     assert "30 天" in result.evidence[0].quote
 
 
 def test_llm_extractor_rejects_bad_index():
-    llm = OpenAICompatibleQueryAwareExtractor(
-        "https://example.invalid/v1", "test-model", "test-key")
     items = [ScoredChunk(_chunk("test", "D01", "D01-v1-c01"))]
     bad = {"evidence": [{"index": 99, "source_id": "D01", "relevance": "high", "quote": "x", "key_info": "y"}]}
-    with patch.object(llm, "_call", return_value=bad):
-        with pytest.raises(ValueError):
-            llm.extract("test", items)
+    llm = OpenAICompatibleQueryAwareExtractor(
+        "https://example.invalid/v1", "test-model", "test-key",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(bad)}}]})))
+    with pytest.raises(ValueError):
+        llm.extract("test", items)
 
 
 def test_llm_extractor_rejects_duplicate_index():
-    llm = OpenAICompatibleQueryAwareExtractor(
-        "https://example.invalid/v1", "test-model", "test-key")
     items = [ScoredChunk(_chunk("test", "D01", "D01-v1-c01"))]
     bad = {"evidence": [
         {"index": 1, "source_id": "D01", "relevance": "high", "quote": "a", "key_info": "b"},
         {"index": 1, "source_id": "D01", "relevance": "high", "quote": "c", "key_info": "d"},
     ]}
-    with patch.object(llm, "_call", return_value=bad):
-        with pytest.raises(ValueError):
-            llm.extract("test", items)
+    llm = OpenAICompatibleQueryAwareExtractor(
+        "https://example.invalid/v1", "test-model", "test-key",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(bad)}}]})))
+    with pytest.raises(ValueError):
+        llm.extract("test", items)

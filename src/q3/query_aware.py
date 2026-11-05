@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from urllib.request import Request, urlopen
 
+import httpx
+
+from .async_provider import chat_url, parse_chat_json, post_json, run_sync
 from .models import ScoredChunk
 
 QUERY_AWARE_PROMPT = """\
@@ -143,36 +145,32 @@ class MockQueryAwareExtractor:
 
 
 class OpenAICompatibleQueryAwareExtractor:
-    def __init__(self, base_url: str, model: str, api_key: str, max_tokens: int = 20000):
+    def __init__(self, base_url: str, model: str, api_key: str, max_tokens: int = 20000,
+                 timeout: float = 120.0, transport: httpx.AsyncBaseTransport | None = None):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.max_tokens = max_tokens
-        self.chat_url = self.base_url if self.base_url.endswith("/chat/completions") \
-            else self.base_url + "/chat/completions"
+        self.chat_url = chat_url(self.base_url)
+        self.timeout_config = httpx.Timeout(timeout)
+        self.transport = transport
 
-    def _call(self, prompt_payload: dict) -> dict:
-        body = json.dumps({
+    async def _call_async(self, prompt_payload: dict) -> dict:
+        body = {
             "model": self.model,
             "temperature": 0,
             "messages": [
                 {"role": "system", "content": QUERY_AWARE_PROMPT},
                 {"role": "user", "content": json.dumps(prompt_payload, ensure_ascii=False)},
             ],
-        }).encode("utf-8")
-        request = Request(self.chat_url, data=body, headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + self.api_key,
-        })
-        with urlopen(request, timeout=120) as response:
-            result = json.loads(response.read().decode("utf-8"))
-        content = result["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        if not isinstance(parsed, dict):
-            raise ValueError("Query-aware extraction response must be a JSON object")
-        return parsed
+        }
+        result = await post_json(self.chat_url, self.api_key, body, self.timeout_config, self.transport)
+        return parse_chat_json(result, "Query-aware response must contain choices[0].message.content JSON object")
 
-    def extract(self, question: str, candidates: list[ScoredChunk]) -> ExtractionResult:
+    def _call(self, prompt_payload: dict) -> dict:
+        return run_sync(self._call_async(prompt_payload))
+
+    async def extract_async(self, question: str, candidates: list[ScoredChunk]) -> ExtractionResult:
         payload_candidates = []
         total_src = 0
         skipped_budget = 0
@@ -192,7 +190,7 @@ class OpenAICompatibleQueryAwareExtractor:
                 "source_id": item.chunk.document_id,
                 "text": text,
             })
-        raw = self._call({"question": question, "candidates": payload_candidates})
+        raw = await self._call_async({"question": question, "candidates": payload_candidates})
         items = raw.get("evidence")
         if not isinstance(items, list):
             raise ValueError("Query-aware extraction evidence must be a list")
@@ -234,6 +232,9 @@ class OpenAICompatibleQueryAwareExtractor:
             token_budget=self.max_tokens,
             candidates_skipped_budget=skipped_budget,
         )
+
+    def extract(self, question: str, candidates: list[ScoredChunk]) -> ExtractionResult:
+        return run_sync(self.extract_async(question, candidates))
 
     @classmethod
     def from_environment(cls, max_tokens: int = 20000):

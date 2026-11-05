@@ -35,7 +35,7 @@ python src/q3/manage.py --input path/to/docs.json --db data/knowledge.db --rebui
 python src/q3/manage.py --list --db data/knowledge.db
 ```
 
-默认语义候选由 `MockSemanticRetriever` 以 token overlap 计算；这不是实际 dense embedding 或 FAISS 检索。当前 CLI 没有创建/注入 FAISS semantic retriever。FAISS 仅作为可选索引/评测工具，不在 CLI 在线问答主链。BM25 与 mock token-overlap 共同提供离线候选信号。默认使用确定性离线 Mock 验证检索控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。真实 provider 请求失败或响应格式不正确时会直接报错，不会静默降级到 Mock。使用本地 `.env` 的直连 smoke 中，reranker `Qwen/Qwen3-Reranker-0.6B` 对两个候选成功返回分数（约 `0.9994`、`0.0010`）；LLM `gpt-6.1-sol` 调用因服务端 TLS 证书过期失败，TLS 校验保持开启。依赖在线 LLM 的 Agent 端到端 clear/conflict/unanswerable 案例未完成，不代表线上 Agent 验收通过。
+默认语义候选由 `MockSemanticRetriever` 以 token overlap 计算；这不是实际 dense embedding 或 FAISS 检索。当前 CLI 没有创建/注入 FAISS semantic retriever。FAISS 仅作为可选索引/评测工具，不在 CLI 在线问答主链。BM25 与 mock token-overlap 共同提供离线候选信号。默认使用确定性离线 Mock 验证检索控制流和安全边界，不代表真实模型能力或在线准确率。Mock 查询改写是固定规则（追加“相关制度”），不是模型自主改写。显式传入 `--llm openai-compatible` 才会由配置的 provider 决定 planner/verifier action；可另行传入 `--reranker provider` 启用 reranker provider。当前 Provider 网络适配使用 `httpx.AsyncClient`，TLS 证书验证开启并配置显式超时。`EnterpriseQA.answer_async()` 可在已有 event loop 中调用；同步 CLI 的 `answer()` 仅作为兼容包装，在无运行中 event loop 时运行异步流程。OpenAI-compatible LLM 和 Query-Aware 均调用 `/chat/completions`；reranker 原生接口支持 `results`/`data`，并保留 chat `scores` 响应模式。
 
 ```bash
 python src/q3/cli.py --question "报销期限多久？" --llm openai-compatible --reranker provider
